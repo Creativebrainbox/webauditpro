@@ -5,6 +5,73 @@
  
  const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
  
+ // Rate limiting configuration
+ const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour window
+ const MAX_REQUESTS_PER_WINDOW = 10; // 10 requests per hour for anonymous users
+ 
+ // In-memory rate limit store (resets on function cold start, but provides basic protection)
+ const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+ 
+ function getClientIP(req: Request): string {
+   // Check various headers for client IP
+   const forwardedFor = req.headers.get('x-forwarded-for');
+   if (forwardedFor) {
+     return forwardedFor.split(',')[0].trim();
+   }
+   
+   const realIP = req.headers.get('x-real-ip');
+   if (realIP) {
+     return realIP;
+   }
+   
+   const cfConnectingIP = req.headers.get('cf-connecting-ip');
+   if (cfConnectingIP) {
+     return cfConnectingIP;
+   }
+   
+   // Fallback - this won't be very accurate but provides some protection
+   return 'unknown';
+ }
+ 
+ function checkRateLimit(clientIP: string): { allowed: boolean; remaining: number; resetIn: number } {
+   const now = Date.now();
+   const record = rateLimitStore.get(clientIP);
+   
+   // Clean up expired entries periodically
+   if (rateLimitStore.size > 1000) {
+     for (const [ip, data] of rateLimitStore.entries()) {
+       if (now > data.resetTime) {
+         rateLimitStore.delete(ip);
+       }
+     }
+   }
+   
+   if (!record || now > record.resetTime) {
+     // New window - allow and start counting
+     rateLimitStore.set(clientIP, {
+       count: 1,
+       resetTime: now + RATE_LIMIT_WINDOW_MS,
+     });
+     return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - 1, resetIn: RATE_LIMIT_WINDOW_MS };
+   }
+   
+   if (record.count >= MAX_REQUESTS_PER_WINDOW) {
+     // Rate limit exceeded
+     const resetIn = record.resetTime - now;
+     return { allowed: false, remaining: 0, resetIn };
+   }
+   
+   // Increment counter
+   record.count++;
+   rateLimitStore.set(clientIP, record);
+   
+   return {
+     allowed: true,
+     remaining: MAX_REQUESTS_PER_WINDOW - record.count,
+     resetIn: record.resetTime - now,
+   };
+ }
+ 
  // Generic error response to avoid leaking implementation details
  const genericError = (message: string, status = 500) => {
    return new Response(
@@ -86,6 +153,32 @@
    }
  
    try {
+     // Rate limiting check
+     const clientIP = getClientIP(req);
+     const rateLimit = checkRateLimit(clientIP);
+     
+     if (!rateLimit.allowed) {
+       const resetMinutes = Math.ceil(rateLimit.resetIn / 60000);
+       console.log(`[RATE_LIMIT] IP ${clientIP} exceeded rate limit, reset in ${resetMinutes} minutes`);
+       return new Response(
+         JSON.stringify({ 
+           success: false, 
+           error: `Rate limit exceeded. Please try again in ${resetMinutes} minutes.` 
+         }),
+         { 
+           status: 429, 
+           headers: { 
+             ...corsHeaders, 
+             'Content-Type': 'application/json',
+             'X-RateLimit-Remaining': '0',
+             'X-RateLimit-Reset': String(Math.ceil(rateLimit.resetIn / 1000)),
+           } 
+         }
+       );
+     }
+ 
+     console.log(`[REQUEST] IP: ${clientIP}, Remaining: ${rateLimit.remaining}`);
+ 
      const { url } = await req.json();
  
      // Validate URL with comprehensive checks
