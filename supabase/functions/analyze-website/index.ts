@@ -5,6 +5,81 @@
  
  const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
  
+ // Generic error response to avoid leaking implementation details
+ const genericError = (message: string, status = 500) => {
+   return new Response(
+     JSON.stringify({ success: false, error: message }),
+     { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+   );
+ };
+ 
+ // URL validation to prevent SSRF attacks
+ function validateUrl(url: string): { valid: boolean; error?: string; formatted?: string } {
+   if (!url || typeof url !== 'string') {
+     return { valid: false, error: 'Please provide a valid URL' };
+   }
+ 
+   const trimmed = url.trim();
+   
+   // Check length limit
+   if (trimmed.length > 2048) {
+     return { valid: false, error: 'URL is too long' };
+   }
+ 
+   // Add protocol if missing
+   let formatted = trimmed;
+   if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) {
+     formatted = `https://${formatted}`;
+   }
+ 
+   try {
+     const parsed = new URL(formatted);
+ 
+     // Only allow HTTP/HTTPS protocols
+     if (!['http:', 'https:'].includes(parsed.protocol)) {
+       return { valid: false, error: 'Only HTTP and HTTPS URLs are supported' };
+     }
+ 
+     const hostname = parsed.hostname.toLowerCase();
+ 
+     // Block localhost and common local hostnames
+     if (['localhost', '0.0.0.0', '127.0.0.1', '::1'].includes(hostname)) {
+       return { valid: false, error: 'Local addresses are not allowed' };
+     }
+ 
+     // Block private IP ranges
+     const privateIpPatterns = [
+       /^127\./,                          // Loopback
+       /^10\./,                           // Class A private
+       /^192\.168\./,                     // Class C private
+       /^172\.(1[6-9]|2[0-9]|3[0-1])\./,  // Class B private
+       /^169\.254\./,                     // Link-local
+       /^0\./,                            // Current network
+       /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./, // Carrier-grade NAT
+     ];
+ 
+     for (const pattern of privateIpPatterns) {
+       if (pattern.test(hostname)) {
+         return { valid: false, error: 'Private network addresses are not allowed' };
+       }
+     }
+ 
+     // Block AWS/GCP/Azure metadata endpoints
+     if (hostname === '169.254.169.254' || hostname.includes('metadata.google') || hostname.includes('metadata.azure')) {
+       return { valid: false, error: 'Metadata endpoints are not allowed' };
+     }
+ 
+     // Ensure hostname has at least one dot (basic domain validation)
+     if (!hostname.includes('.')) {
+       return { valid: false, error: 'Please provide a valid domain name' };
+     }
+ 
+     return { valid: true, formatted };
+   } catch {
+     return { valid: false, error: 'Please provide a valid URL' };
+   }
+ }
+ 
  Deno.serve(async (req) => {
    if (req.method === 'OPTIONS') {
      return new Response(null, { headers: corsHeaders });
@@ -13,33 +88,24 @@
    try {
      const { url } = await req.json();
  
-     if (!url) {
-       return new Response(
-         JSON.stringify({ success: false, error: 'URL is required' }),
-         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-       );
+     // Validate URL with comprehensive checks
+     const validation = validateUrl(url);
+     if (!validation.valid) {
+       return genericError(validation.error || 'Invalid URL', 400);
      }
+ 
+     const formattedUrl = validation.formatted!;
  
      const firecrawlKey = Deno.env.get('FIRECRAWL_API_KEY');
      if (!firecrawlKey) {
-       return new Response(
-         JSON.stringify({ success: false, error: 'Firecrawl API key not configured' }),
-         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-       );
+       console.error('[CONFIG_ERROR] Firecrawl API key not configured');
+       return genericError('Service temporarily unavailable. Please try again later.');
      }
  
      const lovableKey = Deno.env.get('LOVABLE_API_KEY');
      if (!lovableKey) {
-       return new Response(
-         JSON.stringify({ success: false, error: 'Lovable API key not configured' }),
-         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-       );
-     }
- 
-     // Format URL
-     let formattedUrl = url.trim();
-     if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-       formattedUrl = `https://${formattedUrl}`;
+       console.error('[CONFIG_ERROR] Lovable API key not configured');
+       return genericError('Service temporarily unavailable. Please try again later.');
      }
  
      console.log('Scraping URL:', formattedUrl);
@@ -61,11 +127,8 @@
      const scrapeData = await scrapeResponse.json();
  
      if (!scrapeResponse.ok || !scrapeData.success) {
-       console.error('Firecrawl error:', scrapeData);
-       return new Response(
-         JSON.stringify({ success: false, error: scrapeData.error || 'Failed to scrape website' }),
-         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-       );
+       console.error('[SCRAPE_ERROR] Firecrawl failed:', scrapeData);
+       return genericError('Unable to access this website. Please check the URL and try again.', 400);
      }
  
      const websiteContent = scrapeData.data?.markdown || '';
@@ -152,11 +215,8 @@
  
      if (!aiResponse.ok) {
        const aiError = await aiResponse.text();
-       console.error('AI Gateway error:', aiError);
-       return new Response(
-         JSON.stringify({ success: false, error: 'Failed to analyze website' }),
-         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-       );
+       console.error('[AI_ERROR] Analysis failed:', aiError);
+       return genericError('Analysis could not be completed. Please try again.');
      }
  
      const aiData = await aiResponse.json();
@@ -176,12 +236,9 @@
        }
        analysis = JSON.parse(cleanContent);
      } catch (parseError) {
-       console.error('Failed to parse AI response:', parseError);
-       console.error('Raw AI content:', aiContent.substring(0, 500));
-       return new Response(
-         JSON.stringify({ success: false, error: 'Failed to parse analysis results' }),
-         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-       );
+       console.error('[PARSE_ERROR] Failed to parse AI response:', parseError);
+       console.error('[PARSE_ERROR] Raw content preview:', aiContent.substring(0, 500));
+       return genericError('Analysis could not be completed. Please try again.');
      }
  
      // Calculate revenue impacts based on severity
@@ -290,11 +347,7 @@
        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
      );
    } catch (error) {
-     console.error('Error analyzing website:', error);
-     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-     return new Response(
-       JSON.stringify({ success: false, error: errorMessage }),
-       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-     );
+     console.error('[UNEXPECTED_ERROR] Analysis failed:', error);
+     return genericError('An unexpected error occurred. Please try again.');
    }
  });
