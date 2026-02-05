@@ -6,6 +6,50 @@ import { cn } from "@/lib/utils";
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
 
+ // Validate color values to prevent XSS via dangerouslySetInnerHTML
+ function isValidCssColor(color: string): boolean {
+   if (!color || typeof color !== 'string') return false;
+   
+   // Trim and check length limit
+   const trimmed = color.trim();
+   if (trimmed.length > 100) return false;
+   
+   // Allow only safe CSS color formats:
+   // - Hex colors: #RGB, #RRGGBB, #RRGGBBAA
+   // - RGB/RGBA: rgb(r,g,b), rgba(r,g,b,a)
+   // - HSL/HSLA: hsl(h,s%,l%), hsla(h,s%,l%,a)
+   // - CSS color keywords (limited set)
+   const hexPattern = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/;
+   const rgbPattern = /^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*(0|1|0?\.\d+))?\s*\)$/;
+   const hslPattern = /^hsla?\(\s*\d{1,3}(\.\d+)?\s*,?\s*\d{1,3}(\.\d+)?%?\s*,?\s*\d{1,3}(\.\d+)?%?\s*(,?\s*(0|1|0?\.\d+))?\s*\)$/;
+   const cssVarPattern = /^var\(--[\w-]+\)$/;
+   
+   // Common CSS color keywords
+   const colorKeywords = [
+     'transparent', 'currentcolor', 'inherit',
+     'black', 'white', 'red', 'green', 'blue', 'yellow', 'orange', 'purple', 
+     'pink', 'gray', 'grey', 'cyan', 'magenta', 'lime', 'navy', 'teal'
+   ];
+   
+   return (
+     hexPattern.test(trimmed) ||
+     rgbPattern.test(trimmed) ||
+     hslPattern.test(trimmed) ||
+     cssVarPattern.test(trimmed) ||
+     colorKeywords.includes(trimmed.toLowerCase())
+   );
+ }
+ 
+ // Sanitize a color value for CSS injection
+ function sanitizeColor(color: string | undefined): string | null {
+   if (!color) return null;
+   if (!isValidCssColor(color)) {
+     console.warn(`Invalid color value rejected: ${color.substring(0, 50)}`);
+     return null;
+   }
+   return color.trim();
+ }
+ 
 export type ChartConfig = {
   [k in string]: {
     label?: React.ReactNode;
@@ -65,23 +109,31 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null;
   }
 
+   // Build CSS with validated colors only
+   const cssRules = Object.entries(THEMES)
+     .map(([theme, prefix]) => {
+       const colorVars = colorConfig
+         .map(([key, itemConfig]) => {
+           const rawColor = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
+           const safeColor = sanitizeColor(rawColor);
+           return safeColor ? `  --color-${key}: ${safeColor};` : null;
+         })
+         .filter(Boolean)
+         .join('\n');
+       
+       return colorVars ? `${prefix} [data-chart=${id}] {\n${colorVars}\n}` : null;
+     })
+     .filter(Boolean)
+     .join('\n');
+ 
+   if (!cssRules) {
+     return null;
+   }
+ 
   return (
     <style
       dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
-  })
-  .join("\n")}
-}
-`,
-          )
-          .join("\n"),
+        __html: cssRules,
       }}
     />
   );
