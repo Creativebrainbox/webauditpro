@@ -256,37 +256,66 @@
  7. Content quality issues
  8. Branding/trust issues
  
- Return a JSON object with this EXACT structure (no markdown, just raw JSON):
- {
-   "issues": [
-     {
-       "id": "1",
-       "title": "Specific issue title based on actual finding",
-       "description": "Detailed description of the actual problem found",
-       "severity": "critical|error|warning|info",
-       "category": "SEO|Performance|Security|Mobile|Accessibility|Conversion|UX|Branding",
-       "impact": "Business impact explanation",
-       "recommendation": "Specific actionable fix",
-       "priority": "high|medium|low"
-     }
-   ],
-   "scores": {
-     "performance": 0-100,
-     "seo": 0-100,
-     "security": 0-100,
-     "mobile": 0-100,
-     "accessibility": 0-100,
-     "conversion": 0-100
-   },
-   "summary": "Brief summary of the website's overall health"
- }
- 
- IMPORTANT:
- - Only report issues that are ACTUALLY found in the content
- - Be specific to THIS website, not generic issues
- - If something looks good, don't report it as an issue
- - Estimate realistic revenue impact based on the severity
- - Return 5-15 issues based on what you actually find`;
+  Return a JSON object with this EXACT structure (no markdown, just raw JSON):
+  {
+    "issues": [
+      {
+        "id": "1",
+        "title": "Specific issue title based on actual finding",
+        "description": "Detailed description of the actual problem found",
+        "severity": "critical|error|warning|info",
+        "category": "SEO|Performance|Security|Mobile|Accessibility|Conversion|UX|Branding",
+        "impact": "Business impact explanation",
+        "recommendation": "Specific actionable fix",
+        "priority": "high|medium|low"
+      }
+    ],
+    "scores": {
+      "performance": 0-100,
+      "seo": 0-100,
+      "security": 0-100,
+      "mobile": 0-100,
+      "accessibility": 0-100,
+      "conversion": 0-100
+    },
+    "summary": "Brief summary of the website's overall health",
+    "competitors": [
+      {
+        "name": "ActualCompetitorDomain.com",
+        "healthScore": 84,
+        "authorityGap": "+12",
+        "contentVolumeGap": "+15%",
+        "pageSpeedGap": "-2s"
+      }
+    ],
+    "keywords": [
+      {
+        "keyword": "specific keyword from this site's niche",
+        "monthlySearches": 1200,
+        "competition": "Low|Medium|High",
+        "currentRank": "Not Ranked|12|45",
+        "opportunity": "Low|Medium|High"
+      }
+    ],
+    "growthForecast": [
+      {
+        "area": "Technical Fixes",
+        "action": "Specific action based on issues found",
+        "seoLift": "+15-25%",
+        "conversionLift": "—"
+      }
+    ]
+  }
+  
+  IMPORTANT:
+  - Only report issues that are ACTUALLY found in the content
+  - Be specific to THIS website, not generic issues
+  - If something looks good, don't report it as an issue
+  - Estimate realistic revenue impact based on the severity
+  - Return 5-15 issues based on what you actually find
+  - For competitors: identify 2-3 REAL competing websites in this exact industry/niche from the scraped content context. Use actual domain names. Make healthScore, authorityGap, contentVolumeGap, pageSpeedGap realistic relative to the scores above.
+  - For keywords: identify 5-8 HIGH-VALUE keywords this site could realistically rank for, derived from the actual products/services/topics found in the content. Use realistic monthly search volumes.
+  - For growthForecast: return 3-5 specific improvement areas with realistic SEO and conversion lift ranges based on the actual issues found. Base the lifts on the severity and number of issues in each area.`;
  
      const aiResponse = await fetch(AI_GATEWAY_URL, {
        method: 'POST',
@@ -415,23 +444,26 @@
        domain = formattedUrl.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
      }
  
-     const result = {
-       url: formattedUrl,
-       domain,
-       auditDate: new Date().toISOString(),
-       overallScore,
-       totalRevenueLoss,
-       potentialRevenueGain,
-       categories,
-       issues: issuesWithRevenue,
-       pageSpeed: scores.performance || 65,
-       mobileScore: scores.mobile || 70,
-       seoScore: scores.seo || 72,
-       accessibilityScore: scores.accessibility || 75,
-       securityScore: scores.security || 80,
-       conversionScore: scores.conversion || 60,
-       summary: analysis.summary || '',
-     };
+      const result = {
+        url: formattedUrl,
+        domain,
+        auditDate: new Date().toISOString(),
+        overallScore,
+        totalRevenueLoss,
+        potentialRevenueGain,
+        categories,
+        issues: issuesWithRevenue,
+        pageSpeed: scores.performance || 65,
+        mobileScore: scores.mobile || 70,
+        seoScore: scores.seo || 72,
+        accessibilityScore: scores.accessibility || 75,
+        securityScore: scores.security || 80,
+        conversionScore: scores.conversion || 60,
+        summary: analysis.summary || '',
+        competitors: analysis.competitors || [],
+        keywords: analysis.keywords || [],
+        growthForecast: analysis.growthForecast || [],
+      };
  
      console.log('Analysis complete, returning', issuesWithRevenue.length, 'issues');
  

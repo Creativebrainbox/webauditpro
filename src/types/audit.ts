@@ -1,3 +1,26 @@
+export interface CompetitorData {
+  name: string;
+  healthScore: number;
+  authorityGap: string;
+  contentVolumeGap: string;
+  pageSpeedGap: string;
+}
+
+export interface KeywordOpportunity {
+  keyword: string;
+  monthlySearches: number;
+  competition: 'Low' | 'Medium' | 'High';
+  currentRank: string;
+  opportunity: 'Low' | 'Medium' | 'High';
+}
+
+export interface GrowthForecastItem {
+  area: string;
+  action: string;
+  seoLift: string;
+  conversionLift: string;
+}
+
 export interface AuditCategory {
   id: string;
   name: string;
@@ -36,6 +59,9 @@ export interface AuditResult {
   accessibilityScore: number;
   securityScore: number;
   conversionScore: number;
+  competitors?: CompetitorData[];
+  keywords?: KeywordOpportunity[];
+  growthForecast?: GrowthForecastItem[];
 }
 
 export type AuditStatus = 'idle' | 'loading' | 'complete' | 'error';
