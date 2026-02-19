@@ -307,12 +307,243 @@ export function generateAuditPDF(result: AuditResult): void {
     categoryIndex++;
   });
 
-  // =================== 3. IMPLEMENTATION ROADMAP ===================
+  // =================== 3. COMPETITOR COMPARISON ===================
   checkPageBreak(40);
   doc.setTextColor(...COLORS.primary);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('3. Implementation Roadmap', margin, y);
+  doc.text('3. Competitor Comparison', margin, y);
+  y += 8;
+
+  doc.setTextColor(...COLORS.text);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const compIntro = `The following analysis compares ${result.domain} against key competitors in your industry. Gaps represent where competitors currently have an advantage — these are your highest-leverage improvement opportunities.`;
+  const compIntroLines = doc.splitTextToSize(compIntro, contentWidth);
+  doc.text(compIntroLines, margin, y);
+  y += compIntroLines.length * 5 + 6;
+
+  if (result.competitors && result.competitors.length > 0) {
+    const competitorRows = [
+      [result.domain, String(result.overallScore), '—', '—', '—'],
+      ...result.competitors.map(c => [
+        c.name,
+        String(c.healthScore),
+        c.authorityGap,
+        c.contentVolumeGap,
+        c.pageSpeedGap,
+      ]),
+    ];
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [['Website', 'Health Score', 'Authority Gap', 'Content Volume Gap', 'Page Speed Gap']],
+      body: competitorRows,
+      theme: 'grid',
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: 'bold', fontSize: 9 },
+      styles: { fontSize: 9, cellPadding: 4, textColor: COLORS.text },
+      columnStyles: {
+        1: { halign: 'center', fontStyle: 'bold' },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center' },
+      },
+      didParseCell: (data) => {
+        // Highlight client row
+        if (data.section === 'body' && data.row.index === 0) {
+          data.cell.styles.fillColor = [235, 244, 255];
+          data.cell.styles.fontStyle = 'bold';
+        }
+        // Color-code gap columns for competitors
+        if (data.section === 'body' && data.row.index > 0) {
+          const val = String(data.cell.raw || '');
+          if (data.column.index >= 2) {
+            if (val.startsWith('+')) data.cell.styles.textColor = COLORS.red;
+            else if (val.startsWith('-')) data.cell.styles.textColor = COLORS.green;
+          }
+          // Health score coloring
+          if (data.column.index === 1) {
+            const score = parseInt(val);
+            if (score >= 80) data.cell.styles.textColor = COLORS.green;
+            else if (score >= 65) data.cell.styles.textColor = COLORS.yellow;
+            else data.cell.styles.textColor = COLORS.red;
+          }
+        }
+      },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    // Legend note
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.muted);
+    doc.setFont('helvetica', 'italic');
+    doc.text('+ gaps indicate competitor advantage  |  – gaps indicate competitor disadvantage (your advantage)', margin, y);
+    y += 12;
+  } else {
+    doc.setTextColor(...COLORS.muted);
+    doc.setFontSize(10);
+    doc.text('Competitor data not available for this analysis.', margin, y);
+    y += 12;
+  }
+
+  // =================== 4. KEYWORD OPPORTUNITY ===================
+  checkPageBreak(40);
+  doc.setTextColor(...COLORS.primary);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('4. Keyword Opportunity Analysis', margin, y);
+  y += 8;
+
+  doc.setTextColor(...COLORS.text);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const kwIntro = `Based on your site's products, services, and industry context, the following high-intent keywords represent immediate traffic growth opportunities. Targeting these terms can drive qualified visitors who are actively searching for what you offer.`;
+  const kwIntroLines = doc.splitTextToSize(kwIntro, contentWidth);
+  doc.text(kwIntroLines, margin, y);
+  y += kwIntroLines.length * 5 + 6;
+
+  if (result.keywords && result.keywords.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [['Keyword', 'Monthly Searches', 'Competition', 'Current Rank', 'Opportunity']],
+      body: result.keywords.map(k => [
+        k.keyword,
+        k.monthlySearches >= 1000
+          ? `${(k.monthlySearches / 1000).toFixed(1)}k`
+          : String(k.monthlySearches),
+        k.competition,
+        k.currentRank,
+        k.opportunity,
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: 'bold', fontSize: 9 },
+      styles: { fontSize: 9, cellPadding: 4, textColor: COLORS.text },
+      columnStyles: {
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center', fontStyle: 'bold' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          // Opportunity column
+          if (data.column.index === 4) {
+            const val = String(data.cell.raw);
+            if (val === 'High') data.cell.styles.textColor = COLORS.green;
+            else if (val === 'Medium') data.cell.styles.textColor = COLORS.yellow;
+            else data.cell.styles.textColor = COLORS.orange;
+          }
+          // Competition column
+          if (data.column.index === 2) {
+            const val = String(data.cell.raw);
+            if (val === 'Low') data.cell.styles.textColor = COLORS.green;
+            else if (val === 'Medium') data.cell.styles.textColor = COLORS.yellow;
+            else data.cell.styles.textColor = COLORS.red;
+          }
+          // Alternate row shading
+          if (data.row.index % 2 === 0) {
+            data.cell.styles.fillColor = COLORS.light;
+          }
+        }
+      },
+    });
+    y = (doc as any).lastAutoTable.finalY + 12;
+  } else {
+    doc.setTextColor(...COLORS.muted);
+    doc.setFontSize(10);
+    doc.text('Keyword data not available for this analysis.', margin, y);
+    y += 12;
+  }
+
+  // =================== 5. STRATEGIC GROWTH FORECAST ===================
+  checkPageBreak(50);
+  doc.setTextColor(...COLORS.primary);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('5. Strategic Growth Forecast', margin, y);
+  y += 6;
+
+  doc.setTextColor(...COLORS.muted);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'italic');
+  doc.text('90-Day Growth Projection', margin, y);
+  y += 8;
+
+  doc.setTextColor(...COLORS.text);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const forecastIntro = `The following projections are based on the issues identified in this audit and industry benchmarks for similar optimization initiatives. These ranges represent realistic outcomes when improvements are implemented consistently over the next 90 days.`;
+  const forecastIntroLines = doc.splitTextToSize(forecastIntro, contentWidth);
+  doc.text(forecastIntroLines, margin, y);
+  y += forecastIntroLines.length * 5 + 6;
+
+  if (result.growthForecast && result.growthForecast.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [['Improvement Area', 'Action', 'Expected SEO Traffic Lift', 'Expected Conversion Lift']],
+      body: result.growthForecast.map(f => [f.area, f.action, f.seoLift, f.conversionLift]),
+      theme: 'grid',
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: 'bold', fontSize: 9 },
+      styles: { fontSize: 9, cellPadding: 4, textColor: COLORS.text },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 38 },
+        1: { cellWidth: 70 },
+        2: { halign: 'center', fontStyle: 'bold', textColor: COLORS.green as [number,number,number], cellWidth: 35 },
+        3: { halign: 'center', fontStyle: 'bold', textColor: COLORS.accent as [number,number,number], cellWidth: 35 },
+      },
+      alternateRowStyles: { fillColor: COLORS.light },
+    });
+    y = (doc as any).lastAutoTable.finalY + 12;
+
+    // Compute summary totals — just show the last item's lifts as aggregate
+    const allSeoLifts = result.growthForecast.map(f => f.seoLift).filter(l => l !== '—');
+    const allConvLifts = result.growthForecast.map(f => f.conversionLift).filter(l => l !== '—');
+
+    // Summary highlight boxes
+    checkPageBreak(25);
+    const boxW = (contentWidth - 10) / 2;
+
+    if (allSeoLifts.length > 0) {
+      doc.setFillColor(...COLORS.primary);
+      doc.roundedRect(margin, y, boxW, 20, 3, 3, 'F');
+      doc.setTextColor(...COLORS.white);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('TOTAL SEO TRAFFIC LIFT', margin + boxW / 2, y + 6, { align: 'center' });
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text(allSeoLifts[allSeoLifts.length - 1], margin + boxW / 2, y + 15, { align: 'center' });
+    }
+
+    if (allConvLifts.length > 0) {
+      doc.setFillColor(...COLORS.green);
+      doc.roundedRect(margin + boxW + 10, y, boxW, 20, 3, 3, 'F');
+      doc.setTextColor(...COLORS.white);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('TOTAL CONVERSION LIFT', margin + boxW + 10 + boxW / 2, y + 6, { align: 'center' });
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text(allConvLifts[allConvLifts.length - 1], margin + boxW + 10 + boxW / 2, y + 15, { align: 'center' });
+    }
+
+    y += 30;
+  } else {
+    doc.setTextColor(...COLORS.muted);
+    doc.setFontSize(10);
+    doc.text('Growth forecast data not available for this analysis.', margin, y);
+    y += 12;
+  }
+
+  // =================== 6. IMPLEMENTATION ROADMAP ===================
+  checkPageBreak(40);
+  doc.setTextColor(...COLORS.primary);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('6. Implementation Roadmap', margin, y);
   y += 12;
 
   const phases = [
@@ -365,12 +596,12 @@ export function generateAuditPDF(result: AuditResult): void {
     y += 10;
   });
 
-  // =================== 4. ROI SUMMARY ===================
+  // =================== 7. ROI SUMMARY ===================
   checkPageBreak(60);
   doc.setTextColor(...COLORS.primary);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('4. ROI Summary & Conclusion', margin, y);
+  doc.text('7. ROI Summary & Conclusion', margin, y);
   y += 10;
 
   doc.setTextColor(...COLORS.text);
