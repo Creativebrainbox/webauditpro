@@ -21,6 +21,22 @@ export interface GrowthForecastItem {
   conversionLift: string;
 }
 
+export interface AdvancedSeoData {
+  metaTitle: { value: string; length: number; status: 'good' | 'too_short' | 'too_long' | 'missing' };
+  metaDescription: { value: string; length: number; status: 'good' | 'too_short' | 'too_long' | 'missing' };
+  headingStructure: { tag: string; text: string }[];
+  hasCanonical: boolean;
+  hasRobotsTxt: boolean;
+  hasSitemap: boolean;
+  hasStructuredData: boolean;
+  structuredDataTypes: string[];
+  imagesWithoutAlt: number;
+  totalImages: number;
+  internalLinks: number;
+  externalLinks: number;
+  keywordCloud: { word: string; count: number }[];
+}
+
 export interface AuditCategory {
   id: string;
   name: string;
@@ -62,6 +78,11 @@ export interface AuditResult {
   competitors?: CompetitorData[];
   keywords?: KeywordOpportunity[];
   growthForecast?: GrowthForecastItem[];
+  detectedPlatform?: string;
+  technologies?: string[];
+  advancedSeo?: AdvancedSeoData;
+  summary?: string;
+  reportId?: string;
 }
 
 export type AuditStatus = 'idle' | 'loading' | 'complete' | 'error';
