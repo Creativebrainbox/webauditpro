@@ -16,7 +16,7 @@ const Report = () => {
     const fetchReport = async () => {
       if (!id) { setError('Invalid report ID'); setLoading(false); return; }
 
-      const { data, error: dbError } = await supabase
+      const { data, error: dbError } = await (supabase as any)
         .from('audit_reports')
         .select('*')
         .eq('id', id)
@@ -28,8 +28,8 @@ const Report = () => {
         return;
       }
 
-      const report = data.result as unknown as AuditResult;
-      report.reportId = data.id;
+      const report = (data as any).result as AuditResult;
+      report.reportId = (data as any).id;
       setResult(report);
       setLoading(false);
     };
