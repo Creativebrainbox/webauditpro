@@ -37,6 +37,93 @@ export interface AdvancedSeoData {
   keywordCloud: { word: string; count: number }[];
 }
 
+export interface HeadersSecurityData {
+  hasHSTS: boolean;
+  hasCSP: boolean;
+  hasXFrameOptions: boolean;
+  hasXContentTypeOptions: boolean;
+  hasReferrerPolicy: boolean;
+  hasPermissionsPolicy: boolean;
+  serverHeader: string;
+  headers: { name: string; value: string; status: 'good' | 'warning' | 'missing' }[];
+}
+
+export interface DnsData {
+  hasARecord: boolean;
+  hasMXRecord: boolean;
+  hasTXTRecord: boolean;
+  dnsProvider: string;
+  nameservers: string[];
+  records: { type: string; value: string; status: 'good' | 'warning' | 'missing' }[];
+}
+
+export interface EmailSecurityData {
+  hasSPF: boolean;
+  hasDKIM: boolean;
+  hasDMARC: boolean;
+  exposedEmails: string[];
+  records: { type: string; value: string; status: 'good' | 'warning' | 'missing' }[];
+}
+
+export interface SslData {
+  isHttps: boolean;
+  issuer: string;
+  validFrom: string;
+  validTo: string;
+  protocol: string;
+  grade: string;
+  daysUntilExpiry: number;
+  hasMixedContent: boolean;
+}
+
+export interface SafeBrowsingData {
+  isSafe: boolean;
+  threats: string[];
+}
+
+export interface FaviconData {
+  hasFavicon: boolean;
+  hasAppleTouchIcon: boolean;
+  hasManifest: boolean;
+  faviconUrl: string;
+}
+
+export interface LegalComplianceData {
+  hasPrivacyPolicy: boolean;
+  hasTermsOfService: boolean;
+  hasCookieConsent: boolean;
+  hasGDPRCompliance: boolean;
+  hasCCPA: boolean;
+  detectedLinks: { type: string; url: string }[];
+}
+
+export interface OpenGraphData {
+  hasOgTitle: boolean;
+  hasOgDescription: boolean;
+  hasOgImage: boolean;
+  hasOgUrl: boolean;
+  hasTwitterCard: boolean;
+  tags: { property: string; content: string; status: 'good' | 'missing' }[];
+}
+
+export interface BrokenLinksData {
+  totalChecked: number;
+  brokenCount: number;
+  brokenLinks: { url: string; statusCode: number; location: string }[];
+}
+
+export interface ExtendedAuditData {
+  headersSecurity?: HeadersSecurityData;
+  dns?: DnsData;
+  emailSecurity?: EmailSecurityData;
+  ssl?: SslData;
+  safeBrowsing?: SafeBrowsingData;
+  favicon?: FaviconData;
+  legalCompliance?: LegalComplianceData;
+  openGraph?: OpenGraphData;
+  brokenLinks?: BrokenLinksData;
+}
+
 export interface AuditCategory {
   id: string;
   name: string;
@@ -81,6 +168,7 @@ export interface AuditResult {
   detectedPlatform?: string;
   technologies?: string[];
   advancedSeo?: AdvancedSeoData;
+  extendedAudit?: ExtendedAuditData;
   summary?: string;
   reportId?: string;
 }
