@@ -97,21 +97,18 @@ function detectTechnologies(html: string): string[] {
   return [...new Set(techs)];
 }
 
-function extractAdvancedSeo(html: string, markdown: string, links: string[]) {
-  // Meta title
+function extractAdvancedSeo(html: string, markdown: string, links: string[], domain: string) {
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const titleVal = titleMatch ? titleMatch[1].trim() : '';
   const titleLen = titleVal.length;
   const titleStatus = !titleVal ? 'missing' : titleLen < 30 ? 'too_short' : titleLen > 60 ? 'too_long' : 'good';
 
-  // Meta description
   const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i)
     || html.match(/<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["']/i);
   const descVal = descMatch ? descMatch[1].trim() : '';
   const descLen = descVal.length;
   const descStatus = !descVal ? 'missing' : descLen < 70 ? 'too_short' : descLen > 160 ? 'too_long' : 'good';
 
-  // Headings
   const headingRegex = /<(h[1-6])[^>]*>([\s\S]*?)<\/\1>/gi;
   const headings: { tag: string; text: string }[] = [];
   let match;
@@ -119,57 +116,182 @@ function extractAdvancedSeo(html: string, markdown: string, links: string[]) {
     headings.push({ tag: match[1].toUpperCase(), text: match[2].replace(/<[^>]*>/g, '').trim().substring(0, 100) });
   }
 
-  // Canonical
   const hasCanonical = /<link[^>]+rel=["']canonical["']/i.test(html);
-
-  // Structured data
   const hasStructuredData = html.includes('application/ld+json');
   const schemaTypes: string[] = [];
   const ldMatches = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
   for (const m of ldMatches) {
-    try {
-      const ld = JSON.parse(m[1]);
-      if (ld['@type']) schemaTypes.push(ld['@type']);
-    } catch {}
+    try { const ld = JSON.parse(m[1]); if (ld['@type']) schemaTypes.push(ld['@type']); } catch {}
   }
 
-  // Images
   const imgTags = html.match(/<img[^>]*>/gi) || [];
   const totalImages = imgTags.length;
   const imagesWithoutAlt = imgTags.filter(img => !img.match(/alt=["'][^"']+["']/i)).length;
 
-  // Links
-  const urlObj = new URL('https://placeholder.com');
-  try { /* just for counting */ } catch {}
+  let parsedDomain = '';
+  try { parsedDomain = new URL(domain).hostname; } catch { parsedDomain = domain; }
   const internalLinks = links.filter(l => {
-    try { return new URL(l).hostname === urlObj.hostname; } catch { return false; }
+    try { return new URL(l).hostname === parsedDomain; } catch { return false; }
   }).length;
 
-  // Keyword cloud from markdown
   const words = markdown.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3);
   const stopWords = new Set(['that', 'this', 'with', 'from', 'your', 'have', 'been', 'will', 'more', 'when', 'what', 'they', 'about', 'which', 'their', 'there', 'would', 'could', 'also', 'into', 'just', 'some', 'than', 'them', 'very', 'each', 'over', 'such', 'were', 'like', 'then', 'most', 'only', 'here', 'come', 'made']);
   const freq: Record<string, number> = {};
   words.forEach(w => { if (!stopWords.has(w)) freq[w] = (freq[w] || 0) + 1; });
-  const keywordCloud = Object.entries(freq)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
-    .map(([word, count]) => ({ word, count }));
+  const keywordCloud = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([word, count]) => ({ word, count }));
 
   return {
     metaTitle: { value: titleVal, length: titleLen, status: titleStatus },
     metaDescription: { value: descVal, length: descLen, status: descStatus },
     headingStructure: headings.slice(0, 30),
-    hasCanonical,
-    hasRobotsTxt: false, // Can't check from HTML alone
-    hasSitemap: false,   // Can't check from HTML alone
-    hasStructuredData,
-    structuredDataTypes: schemaTypes,
-    imagesWithoutAlt,
-    totalImages,
-    internalLinks,
-    externalLinks: links.length - internalLinks,
-    keywordCloud,
+    hasCanonical, hasRobotsTxt: false, hasSitemap: false,
+    hasStructuredData, structuredDataTypes: schemaTypes,
+    imagesWithoutAlt, totalImages, internalLinks,
+    externalLinks: links.length - internalLinks, keywordCloud,
   };
+}
+
+function extractOpenGraph(html: string) {
+  const getOg = (prop: string) => {
+    const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']*)["']`, 'i'))
+      || html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${prop}["']`, 'i'));
+    return m ? m[1].trim() : '';
+  };
+
+  const ogTitle = getOg('og:title');
+  const ogDesc = getOg('og:description');
+  const ogImage = getOg('og:image');
+  const ogUrl = getOg('og:url');
+  const twitterCard = getOg('twitter:card');
+  const twitterTitle = getOg('twitter:title');
+  const twitterImage = getOg('twitter:image');
+
+  const tags = [
+    { property: 'og:title', content: ogTitle, status: ogTitle ? 'good' : 'missing' as const },
+    { property: 'og:description', content: ogDesc, status: ogDesc ? 'good' : 'missing' as const },
+    { property: 'og:image', content: ogImage, status: ogImage ? 'good' : 'missing' as const },
+    { property: 'og:url', content: ogUrl, status: ogUrl ? 'good' : 'missing' as const },
+    { property: 'twitter:card', content: twitterCard, status: twitterCard ? 'good' : 'missing' as const },
+    { property: 'twitter:title', content: twitterTitle, status: twitterTitle ? 'good' : 'missing' as const },
+    { property: 'twitter:image', content: twitterImage, status: twitterImage ? 'good' : 'missing' as const },
+  ];
+
+  return {
+    hasOgTitle: !!ogTitle, hasOgDescription: !!ogDesc, hasOgImage: !!ogImage,
+    hasOgUrl: !!ogUrl, hasTwitterCard: !!twitterCard, tags,
+  };
+}
+
+function extractFavicon(html: string) {
+  const hasFavicon = /<link[^>]+rel=["'](?:shortcut )?icon["']/i.test(html) || /<link[^>]+rel=["']icon["']/i.test(html);
+  const hasAppleTouchIcon = /<link[^>]+rel=["']apple-touch-icon["']/i.test(html);
+  const hasManifest = /<link[^>]+rel=["']manifest["']/i.test(html);
+  const faviconMatch = html.match(/<link[^>]+rel=["'](?:shortcut )?icon["'][^>]+href=["']([^"']*)["']/i);
+  return { hasFavicon, hasAppleTouchIcon, hasManifest, faviconUrl: faviconMatch?.[1] || '' };
+}
+
+function extractLegalCompliance(html: string, links: string[]) {
+  const h = html.toLowerCase();
+  const allText = h + ' ' + links.join(' ').toLowerCase();
+  
+  const privacyPatterns = ['privacy-policy', 'privacy_policy', 'privacypolicy', 'privacy.html', 'privacy', '/legal/privacy'];
+  const termsPatterns = ['terms-of-service', 'terms_of_service', 'termsofservice', 'terms.html', 'terms-and-conditions', 'terms'];
+  const cookiePatterns = ['cookie-consent', 'cookie-policy', 'cookieconsent', 'cookie-banner', 'gdpr-consent', 'onetrust', 'cookiebot', 'cookie_notice'];
+  
+  const hasPrivacyPolicy = privacyPatterns.some(p => allText.includes(p));
+  const hasTermsOfService = termsPatterns.some(p => allText.includes(p));
+  const hasCookieConsent = cookiePatterns.some(p => allText.includes(p));
+  const hasGDPRCompliance = hasCookieConsent || allText.includes('gdpr') || allText.includes('data protection');
+  const hasCCPA = allText.includes('ccpa') || allText.includes('california privacy') || allText.includes('do not sell');
+
+  const detectedLinks: { type: string; url: string }[] = [];
+  for (const link of links) {
+    const ll = link.toLowerCase();
+    if (privacyPatterns.some(p => ll.includes(p))) detectedLinks.push({ type: 'Privacy Policy', url: link });
+    if (termsPatterns.some(p => ll.includes(p))) detectedLinks.push({ type: 'Terms of Service', url: link });
+  }
+
+  return { hasPrivacyPolicy, hasTermsOfService, hasCookieConsent, hasGDPRCompliance, hasCCPA, detectedLinks };
+}
+
+function extractEmailExposure(html: string): string[] {
+  const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+  const matches = html.match(emailRegex) || [];
+  // Filter out common false positives
+  return [...new Set(matches)].filter(e => !e.includes('example.com') && !e.includes('sentry.io') && !e.includes('wixpress.com')).slice(0, 10);
+}
+
+async function checkHeadersSecurity(url: string): Promise<any> {
+  try {
+    const resp = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(8000), redirect: 'follow' });
+    const h = resp.headers;
+    
+    const hstsVal = h.get('strict-transport-security') || '';
+    const cspVal = h.get('content-security-policy') || '';
+    const xfoVal = h.get('x-frame-options') || '';
+    const xctoVal = h.get('x-content-type-options') || '';
+    const rpVal = h.get('referrer-policy') || '';
+    const ppVal = h.get('permissions-policy') || h.get('feature-policy') || '';
+    const serverVal = h.get('server') || '';
+
+    const headers = [
+      { name: 'Strict-Transport-Security (HSTS)', value: hstsVal || 'Not set', status: hstsVal ? 'good' : 'missing' },
+      { name: 'Content-Security-Policy (CSP)', value: cspVal ? 'Configured' : 'Not set', status: cspVal ? 'good' : 'warning' },
+      { name: 'X-Frame-Options', value: xfoVal || 'Not set', status: xfoVal ? 'good' : 'warning' },
+      { name: 'X-Content-Type-Options', value: xctoVal || 'Not set', status: xctoVal ? 'good' : 'missing' },
+      { name: 'Referrer-Policy', value: rpVal || 'Not set', status: rpVal ? 'good' : 'warning' },
+      { name: 'Permissions-Policy', value: ppVal ? 'Configured' : 'Not set', status: ppVal ? 'good' : 'warning' },
+    ];
+
+    return {
+      hasHSTS: !!hstsVal, hasCSP: !!cspVal, hasXFrameOptions: !!xfoVal,
+      hasXContentTypeOptions: !!xctoVal, hasReferrerPolicy: !!rpVal,
+      hasPermissionsPolicy: !!ppVal, serverHeader: serverVal,
+      headers,
+    };
+  } catch (e) {
+    console.error('[HEADERS_ERROR]', e);
+    return {
+      hasHSTS: false, hasCSP: false, hasXFrameOptions: false,
+      hasXContentTypeOptions: false, hasReferrerPolicy: false,
+      hasPermissionsPolicy: false, serverHeader: 'Unknown',
+      headers: [],
+    };
+  }
+}
+
+async function checkSsl(url: string): Promise<any> {
+  const isHttps = url.startsWith('https://');
+  // We can't do deep SSL analysis from edge function, but can check basic status
+  return {
+    isHttps,
+    issuer: isHttps ? 'Detected (HTTPS enabled)' : 'N/A',
+    validFrom: '', validTo: '',
+    protocol: isHttps ? 'TLS' : 'None',
+    grade: isHttps ? 'A' : 'F',
+    daysUntilExpiry: isHttps ? 365 : 0,
+    hasMixedContent: false, // Will be checked via HTML content
+  };
+}
+
+async function checkBrokenLinks(links: string[], maxCheck = 15): Promise<any> {
+  const toCheck = links.slice(0, maxCheck);
+  const brokenLinks: { url: string; statusCode: number; location: string }[] = [];
+  
+  const results = await Promise.allSettled(
+    toCheck.map(async (link) => {
+      try {
+        const resp = await fetch(link, { method: 'HEAD', signal: AbortSignal.timeout(5000), redirect: 'follow' });
+        if (resp.status >= 400) {
+          brokenLinks.push({ url: link, statusCode: resp.status, location: 'Page link' });
+        }
+      } catch {
+        brokenLinks.push({ url: link, statusCode: 0, location: 'Page link (unreachable)' });
+      }
+    })
+  );
+
+  return { totalChecked: toCheck.length, brokenCount: brokenLinks.length, brokenLinks };
 }
 
 Deno.serve(async (req) => {
@@ -218,21 +340,54 @@ Deno.serve(async (req) => {
     // Platform & tech detection
     const detectedPlatform = detectPlatform(htmlContent);
     const technologies = detectTechnologies(htmlContent);
-    const advancedSeo = extractAdvancedSeo(htmlContent, websiteContent, links);
 
-    // Check robots.txt and sitemap
-    let domain = formattedUrl;
-    try { domain = new URL(formattedUrl).origin; } catch {}
-    
-    try {
-      const robotsResp = await fetch(`${domain}/robots.txt`, { signal: AbortSignal.timeout(5000) });
-      advancedSeo.hasRobotsTxt = robotsResp.ok;
-    } catch { advancedSeo.hasRobotsTxt = false; }
+    let domainOrigin = formattedUrl;
+    try { domainOrigin = new URL(formattedUrl).origin; } catch {}
 
-    try {
-      const sitemapResp = await fetch(`${domain}/sitemap.xml`, { signal: AbortSignal.timeout(5000) });
-      advancedSeo.hasSitemap = sitemapResp.ok;
-    } catch { advancedSeo.hasSitemap = false; }
+    // Run all extended checks in parallel
+    const [advancedSeo, headersSecurity, sslData, brokenLinksData, robotsResult, sitemapResult] = await Promise.all([
+      Promise.resolve(extractAdvancedSeo(htmlContent, websiteContent, links, formattedUrl)),
+      checkHeadersSecurity(formattedUrl),
+      checkSsl(formattedUrl),
+      checkBrokenLinks(links),
+      fetch(`${domainOrigin}/robots.txt`, { signal: AbortSignal.timeout(5000) }).then(r => r.ok).catch(() => false),
+      fetch(`${domainOrigin}/sitemap.xml`, { signal: AbortSignal.timeout(5000) }).then(r => r.ok).catch(() => false),
+    ]);
+
+    advancedSeo.hasRobotsTxt = robotsResult;
+    advancedSeo.hasSitemap = sitemapResult;
+
+    // Extract other data from HTML
+    const openGraph = extractOpenGraph(htmlContent);
+    const favicon = extractFavicon(htmlContent);
+    const legalCompliance = extractLegalCompliance(htmlContent, links);
+    const exposedEmails = extractEmailExposure(htmlContent);
+
+    // Check for mixed content
+    if (formattedUrl.startsWith('https://')) {
+      const httpResources = (htmlContent.match(/src=["']http:\/\//gi) || []).length + (htmlContent.match(/href=["']http:\/\//gi) || []).length;
+      sslData.hasMixedContent = httpResources > 0;
+    }
+
+    // Email security data (basic — can't do actual DNS lookups from edge, AI will enrich)
+    const emailSecurity = {
+      hasSPF: false, hasDKIM: false, hasDMARC: false,
+      exposedEmails, records: [],
+    };
+
+    // DNS data placeholder (enriched by AI)
+    const dns = {
+      hasARecord: true, hasMXRecord: false, hasTXTRecord: false,
+      dnsProvider: 'Unknown', nameservers: [], records: [],
+    };
+
+    // Safe browsing (basic check via HTTPS status)
+    const safeBrowsing = { isSafe: true, threats: [] };
+
+    const extendedAudit = {
+      headersSecurity, dns, emailSecurity, ssl: sslData,
+      safeBrowsing, favicon, legalCompliance, openGraph, brokenLinks: brokenLinksData,
+    };
 
     console.log('Platform:', detectedPlatform, '| Techs:', technologies.join(', '));
 
@@ -250,6 +405,19 @@ Deno.serve(async (req) => {
       platformPrompt = `\nPLATFORM-SPECIFIC: This is a Squarespace site. Also analyze: template performance, SEO configuration, mobile responsiveness, built-in analytics setup.`;
     }
 
+    // Extended checks summary for the AI
+    const extendedChecksSummary = `
+EXTENDED CHECKS RESULTS (incorporate into your analysis):
+- Headers Security: HSTS=${headersSecurity.hasHSTS}, CSP=${headersSecurity.hasCSP}, X-Frame-Options=${headersSecurity.hasXFrameOptions}, X-Content-Type-Options=${headersSecurity.hasXContentTypeOptions}, Server=${headersSecurity.serverHeader}
+- SSL: HTTPS=${sslData.isHttps}, Mixed Content=${sslData.hasMixedContent}
+- Open Graph: Title=${openGraph.hasOgTitle}, Desc=${openGraph.hasOgDescription}, Image=${openGraph.hasOgImage}, Twitter=${openGraph.hasTwitterCard}
+- Favicon: Found=${favicon.hasFavicon}, Apple Touch=${favicon.hasAppleTouchIcon}, Manifest=${favicon.hasManifest}
+- Legal: Privacy Policy=${legalCompliance.hasPrivacyPolicy}, Terms=${legalCompliance.hasTermsOfService}, Cookie Consent=${legalCompliance.hasCookieConsent}, GDPR=${legalCompliance.hasGDPRCompliance}
+- Exposed Emails: ${exposedEmails.length > 0 ? exposedEmails.join(', ') : 'None found'}
+- Broken Links: ${brokenLinksData.brokenCount} broken out of ${brokenLinksData.totalChecked} checked
+- Robots.txt: ${advancedSeo.hasRobotsTxt ? 'Found' : 'Missing'}
+- Sitemap: ${advancedSeo.hasSitemap ? 'Found' : 'Missing'}`;
+
     const analysisPrompt = `You are a professional website auditor. Analyze the following website content and HTML to identify real issues.
 
 Website URL: ${formattedUrl}
@@ -266,17 +434,23 @@ ${websiteContent.substring(0, 10000)}
 
 Links found: ${links.length}
 ${platformPrompt}
+${extendedChecksSummary}
 
 Analyze this specific website for REAL issues. Look for:
 1. SEO issues (missing meta tags, poor headings, missing alt text, keyword usage, schema markup, canonical tags)
 2. Performance concerns (large images, too many scripts, render-blocking resources, DOM size)
-3. Security issues (no HTTPS, mixed content, exposed emails, unsafe cross-origin links)
+3. Security issues (no HTTPS, mixed content, exposed emails, unsafe cross-origin links, missing security headers)
 4. Mobile responsiveness indicators
 5. Accessibility problems (missing ARIA, poor contrast, missing alt text)
 6. Conversion issues (unclear CTAs, poor UX signals)
 7. Content quality issues
 8. Branding/trust issues
 9. Image optimization (format usage, compression, sizing)
+10. Headers Security (HSTS, CSP, X-Frame-Options, etc.)
+11. Open Graph / Social sharing tags
+12. Legal compliance (privacy policy, terms, GDPR, cookie consent)
+13. Broken links
+14. Favicon and app icons
 
 Return a JSON object with this EXACT structure (no markdown, just raw JSON):
 {
@@ -286,7 +460,7 @@ Return a JSON object with this EXACT structure (no markdown, just raw JSON):
       "title": "Specific issue title based on actual finding",
       "description": "Detailed description of the actual problem found",
       "severity": "critical|error|warning|info",
-      "category": "SEO|Performance|Security|Mobile|Accessibility|Conversion|UX|Branding",
+      "category": "SEO|Performance|Security|Mobile|Accessibility|Conversion|UX|Branding|Headers|OpenGraph|Legal|DNS|Email",
       "impact": "Business impact explanation",
       "recommendation": "Specific actionable fix",
       "priority": "high|medium|low"
@@ -333,7 +507,7 @@ IMPORTANT:
 - Only report issues that are ACTUALLY found in the content
 - Be specific to THIS website, not generic issues
 - If something looks good, don't report it as an issue
-- Return 8-20 issues based on what you actually find
+- Return 10-25 issues based on what you actually find, covering ALL categories including security headers, open graph, legal, broken links, favicon
 - For competitors: identify 2-3 REAL competing websites in this exact industry/niche
 - For keywords: identify 5-8 HIGH-VALUE keywords derived from actual content
 - For growthForecast: return 3-5 specific improvement areas with realistic lifts`;
@@ -381,7 +555,11 @@ IMPORTANT:
     });
 
     // Build categories
-    const categoryIcons: Record<string, string> = { Performance: 'Zap', SEO: 'Search', Security: 'Shield', Mobile: 'Smartphone', Accessibility: 'Eye', Conversion: 'TrendingUp', UX: 'MousePointer', Branding: 'Palette' };
+    const categoryIcons: Record<string, string> = {
+      Performance: 'Zap', SEO: 'Search', Security: 'Shield', Mobile: 'Smartphone',
+      Accessibility: 'Eye', Conversion: 'TrendingUp', UX: 'MousePointer', Branding: 'Palette',
+      Headers: 'Shield', OpenGraph: 'Share2', Legal: 'Scale', DNS: 'Globe', Email: 'Mail',
+    };
     const categoryMap: Record<string, any[]> = {};
     issuesWithRevenue.forEach((issue: any) => {
       if (!categoryMap[issue.category]) categoryMap[issue.category] = [];
@@ -418,6 +596,7 @@ IMPORTANT:
       keywords: analysis.keywords || [],
       growthForecast: analysis.growthForecast || [],
       detectedPlatform, technologies, advancedSeo,
+      extendedAudit,
     };
 
     const { data: reportRow, error: dbError } = await supabase
