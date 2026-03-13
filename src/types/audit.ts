@@ -112,6 +112,34 @@ export interface BrokenLinksData {
   brokenLinks: { url: string; statusCode: number; location: string }[];
 }
 
+export interface TrackingToolsData {
+  tools: { name: string; category: string; status: 'detected' | 'not_detected' }[];
+}
+
+export interface ContentQualityData {
+  wordCount: number;
+  readabilityScore: number;
+  readabilityGrade: string;
+  paragraphCount: number;
+  averageSentenceLength: number;
+  contentToCodeRatio: number;
+}
+
+export interface RobotsTxtData {
+  exists: boolean;
+  content: string;
+  disallowedPaths: string[];
+  allowedPaths: string[];
+  sitemapReferences: string[];
+}
+
+export interface SitemapData {
+  exists: boolean;
+  url: string;
+  urlCount: number;
+  format: string;
+}
+
 export interface ExtendedAuditData {
   headersSecurity?: HeadersSecurityData;
   dns?: DnsData;
