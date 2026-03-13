@@ -150,6 +150,10 @@ export interface ExtendedAuditData {
   legalCompliance?: LegalComplianceData;
   openGraph?: OpenGraphData;
   brokenLinks?: BrokenLinksData;
+  trackingTools?: TrackingToolsData;
+  contentQuality?: ContentQualityData;
+  robotsTxt?: RobotsTxtData;
+  sitemap?: SitemapData;
 }
 
 export interface AuditCategory {
