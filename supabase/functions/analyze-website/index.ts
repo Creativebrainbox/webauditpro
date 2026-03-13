@@ -475,6 +475,7 @@ Deno.serve(async (req) => {
     const extendedAudit = {
       headersSecurity, dns, emailSecurity, ssl: sslData,
       safeBrowsing, favicon, legalCompliance, openGraph, brokenLinks: brokenLinksData,
+      trackingTools, contentQuality, robotsTxt: robotsTxtData, sitemap: sitemapData,
     };
 
     console.log('Platform:', detectedPlatform, '| Techs:', technologies.join(', '));
