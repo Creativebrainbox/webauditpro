@@ -76,6 +76,9 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
           activeSection={activeSection}
           onSectionChange={setActiveSection}
           extendedAudit={result.extendedAudit}
+          hasCompetitors={!!result.competitors?.length}
+          hasKeywords={!!result.keywords?.length}
+          hasGrowth={!!result.growthForecast?.length}
         />
 
         {/* Summary Section */}
