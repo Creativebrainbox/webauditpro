@@ -294,6 +294,64 @@ async function checkBrokenLinks(links: string[], maxCheck = 15): Promise<any> {
   return { totalChecked: toCheck.length, brokenCount: brokenLinks.length, brokenLinks };
 }
 
+function extractTrackingTools(html: string): any {
+  const h = html.toLowerCase();
+  const tools: { name: string; category: string; status: 'detected' | 'not_detected' }[] = [];
+
+  const checks = [
+    { name: 'Google Analytics', category: 'Analytics', test: () => h.includes('google-analytics.com') || h.includes('googletagmanager.com') || h.includes('gtag(') },
+    { name: 'Google Tag Manager', category: 'Tag Manager', test: () => h.includes('googletagmanager.com/gtm') },
+    { name: 'Facebook Pixel', category: 'Advertising', test: () => h.includes('facebook.com/tr') || h.includes('fbevents.js') || h.includes('fbq(') },
+    { name: 'Hotjar', category: 'Heatmaps', test: () => h.includes('hotjar.com') || h.includes('hj(') },
+    { name: 'Microsoft Clarity', category: 'Heatmaps', test: () => h.includes('clarity.ms') },
+    { name: 'LinkedIn Insight', category: 'Advertising', test: () => h.includes('snap.licdn.com') || h.includes('linkedin.com/px') },
+    { name: 'Twitter Pixel', category: 'Advertising', test: () => h.includes('static.ads-twitter.com') || h.includes('twq(') },
+    { name: 'Pinterest Tag', category: 'Advertising', test: () => h.includes('pintrk') || h.includes('ct.pinterest.com') },
+    { name: 'TikTok Pixel', category: 'Advertising', test: () => h.includes('analytics.tiktok.com') || h.includes('ttq.') },
+    { name: 'Segment', category: 'Analytics', test: () => h.includes('cdn.segment.com') || h.includes('analytics.js') },
+    { name: 'Mixpanel', category: 'Analytics', test: () => h.includes('mixpanel.com') },
+    { name: 'Plausible', category: 'Analytics', test: () => h.includes('plausible.io') },
+    { name: 'Matomo', category: 'Analytics', test: () => h.includes('matomo') || h.includes('piwik') },
+    { name: 'Intercom', category: 'Chat', test: () => h.includes('intercom') },
+    { name: 'Crisp', category: 'Chat', test: () => h.includes('crisp.chat') },
+    { name: 'Drift', category: 'Chat', test: () => h.includes('drift.com') || h.includes('driftt.com') },
+    { name: 'HubSpot', category: 'CRM', test: () => h.includes('js.hs-scripts.com') || h.includes('hubspot.com') },
+    { name: 'Salesforce', category: 'CRM', test: () => h.includes('salesforce.com') || h.includes('pardot.com') },
+  ];
+
+  for (const c of checks) {
+    tools.push({ name: c.name, category: c.category, status: c.test() ? 'detected' : 'not_detected' });
+  }
+
+  return { tools };
+}
+
+function extractContentQuality(html: string, markdown: string): any {
+  const text = markdown.replace(/[#*\[\]()>`_~|]/g, '').trim();
+  const words = text.split(/\s+/).filter(w => w.length > 0);
+  const wordCount = words.length;
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 5);
+  const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 10);
+  const avgSentenceLength = sentences.length > 0 ? Math.round(wordCount / sentences.length) : 0;
+  
+  // Simple readability - Flesch-like approximation
+  const syllables = words.reduce((acc, w) => acc + Math.max(1, w.replace(/[^aeiouy]/gi, '').length), 0);
+  const fleschScore = Math.max(0, Math.min(100, Math.round(206.835 - 1.015 * (wordCount / Math.max(1, sentences.length)) - 84.6 * (syllables / Math.max(1, wordCount)))));
+  
+  let grade = 'Easy';
+  if (fleschScore < 30) grade = 'Very Difficult';
+  else if (fleschScore < 50) grade = 'Difficult';
+  else if (fleschScore < 60) grade = 'Fairly Difficult';
+  else if (fleschScore < 70) grade = 'Standard';
+  else if (fleschScore < 80) grade = 'Fairly Easy';
+
+  const htmlLen = html.length;
+  const textLen = text.length;
+  const contentToCodeRatio = htmlLen > 0 ? Math.round((textLen / htmlLen) * 100) : 0;
+
+  return { wordCount, readabilityScore: fleschScore, readabilityGrade: grade, paragraphCount: paragraphs.length, averageSentenceLength: avgSentenceLength, contentToCodeRatio };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
