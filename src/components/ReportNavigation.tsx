@@ -108,6 +108,31 @@ function getLegalStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
   return 'error';
 }
 
+function getContentQualityStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.contentQuality) return 'warning';
+  if (ext.contentQuality.contentToCodeRatio >= 15 && ext.contentQuality.readabilityScore >= 50) return 'good';
+  if (ext.contentQuality.contentToCodeRatio >= 5) return 'warning';
+  return 'error';
+}
+
+function getTrackingStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.trackingTools) return 'warning';
+  const detected = ext.trackingTools.tools.filter(t => t.status === 'detected').length;
+  if (detected >= 2) return 'good';
+  if (detected >= 1) return 'warning';
+  return 'error';
+}
+
+function getRobotsTxtStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.robotsTxt) return 'warning';
+  return ext.robotsTxt.exists ? 'good' : 'error';
+}
+
+function getSitemapStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.sitemap) return 'warning';
+  return ext.sitemap.exists ? 'good' : 'error';
+}
+
 function getBrokenLinksStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
   if (!ext?.brokenLinks) return 'warning';
   if (ext.brokenLinks.brokenCount === 0) return 'good';
