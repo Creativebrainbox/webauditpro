@@ -403,23 +403,53 @@ Deno.serve(async (req) => {
     try { domainOrigin = new URL(formattedUrl).origin; } catch {}
 
     // Run all extended checks in parallel
-    const [advancedSeo, headersSecurity, sslData, brokenLinksData, robotsResult, sitemapResult] = await Promise.all([
+    const [advancedSeo, headersSecurity, sslData, brokenLinksData, robotsResponse, sitemapResponse] = await Promise.all([
       Promise.resolve(extractAdvancedSeo(htmlContent, websiteContent, links, formattedUrl)),
       checkHeadersSecurity(formattedUrl),
       checkSsl(formattedUrl),
       checkBrokenLinks(links),
-      fetch(`${domainOrigin}/robots.txt`, { signal: AbortSignal.timeout(5000) }).then(r => r.ok).catch(() => false),
-      fetch(`${domainOrigin}/sitemap.xml`, { signal: AbortSignal.timeout(5000) }).then(r => r.ok).catch(() => false),
+      fetch(`${domainOrigin}/robots.txt`, { signal: AbortSignal.timeout(5000) }).then(async r => {
+        if (!r.ok) return { exists: false, content: '' };
+        const txt = await r.text();
+        return { exists: true, content: txt };
+      }).catch(() => ({ exists: false, content: '' })),
+      fetch(`${domainOrigin}/sitemap.xml`, { signal: AbortSignal.timeout(5000) }).then(async r => {
+        if (!r.ok) return { exists: false, content: '' };
+        const txt = await r.text();
+        return { exists: true, content: txt };
+      }).catch(() => ({ exists: false, content: '' })),
     ]);
 
-    advancedSeo.hasRobotsTxt = robotsResult;
-    advancedSeo.hasSitemap = sitemapResult;
+    advancedSeo.hasRobotsTxt = robotsResponse.exists;
+    advancedSeo.hasSitemap = sitemapResponse.exists;
+
+    // Parse robots.txt
+    const robotsTxtData: any = { exists: robotsResponse.exists, content: robotsResponse.content.substring(0, 3000), disallowedPaths: [], allowedPaths: [], sitemapReferences: [] };
+    if (robotsResponse.exists) {
+      const lines = robotsResponse.content.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim().toLowerCase();
+        if (trimmed.startsWith('disallow:')) robotsTxtData.disallowedPaths.push(line.split(':').slice(1).join(':').trim());
+        else if (trimmed.startsWith('allow:')) robotsTxtData.allowedPaths.push(line.split(':').slice(1).join(':').trim());
+        else if (trimmed.startsWith('sitemap:')) robotsTxtData.sitemapReferences.push(line.split('sitemap:')[1]?.trim() || line.split('Sitemap:')[1]?.trim() || '');
+      }
+    }
+
+    // Parse sitemap
+    const sitemapData: any = { exists: sitemapResponse.exists, url: `${domainOrigin}/sitemap.xml`, urlCount: 0, format: 'Unknown' };
+    if (sitemapResponse.exists) {
+      const urlMatches = sitemapResponse.content.match(/<loc>/gi);
+      sitemapData.urlCount = urlMatches ? urlMatches.length : 0;
+      sitemapData.format = sitemapResponse.content.includes('<urlset') ? 'XML' : sitemapResponse.content.includes('<sitemapindex') ? 'XML Index' : 'Other';
+    }
 
     // Extract other data from HTML
     const openGraph = extractOpenGraph(htmlContent);
     const favicon = extractFavicon(htmlContent);
     const legalCompliance = extractLegalCompliance(htmlContent, links);
     const exposedEmails = extractEmailExposure(htmlContent);
+    const trackingTools = extractTrackingTools(htmlContent);
+    const contentQuality = extractContentQuality(htmlContent, websiteContent);
 
     // Check for mixed content
     if (formattedUrl.startsWith('https://')) {
