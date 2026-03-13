@@ -45,7 +45,7 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
   const passedCount = result.issues.filter(i => i.severity === 'info').length;
 
   // Check if active section is an extended audit section
-  const extendedSections = ['headers', 'dns', 'email', 'ssl', 'safebrowsing', 'favicon', 'legal', 'opengraph', 'brokenlinks'];
+  const extendedSections = ['headers', 'dns', 'email', 'ssl', 'safebrowsing', 'favicon', 'legal', 'opengraph', 'brokenlinks', 'tracking', 'contentquality', 'robotstxt', 'sitemap'];
   const isExtendedSection = extendedSections.includes(activeSection);
 
   return (
