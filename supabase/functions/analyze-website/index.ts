@@ -505,7 +505,9 @@ EXTENDED CHECKS RESULTS (incorporate into your analysis):
 - Exposed Emails: ${exposedEmails.length > 0 ? exposedEmails.join(', ') : 'None found'}
 - Broken Links: ${brokenLinksData.brokenCount} broken out of ${brokenLinksData.totalChecked} checked
 - Robots.txt: ${advancedSeo.hasRobotsTxt ? 'Found' : 'Missing'}
-- Sitemap: ${advancedSeo.hasSitemap ? 'Found' : 'Missing'}`;
+- Sitemap: ${advancedSeo.hasSitemap ? 'Found' : 'Missing'} (${sitemapData.urlCount} URLs)
+- Tracking Tools Detected: ${trackingTools.tools.filter((t: any) => t.status === 'detected').map((t: any) => t.name).join(', ') || 'None'}
+- Content Quality: ${contentQuality.wordCount} words, Readability: ${contentQuality.readabilityGrade} (${contentQuality.readabilityScore}/100), Content-to-Code Ratio: ${contentQuality.contentToCodeRatio}%`;
 
     const analysisPrompt = `You are a professional website auditor. Analyze the following website content and HTML to identify real issues.
 
