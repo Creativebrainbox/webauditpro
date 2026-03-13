@@ -15,6 +15,7 @@ const steps = [
   { icon: Mail, label: 'Scanning email security...', duration: 350 },
   { icon: Globe, label: 'Checking DNS configuration...', duration: 300 },
   { icon: Zap, label: 'Testing performance metrics...', duration: 500 },
+  { icon: FileText, label: 'Analyzing content quality...', duration: 350 },
   { icon: Image, label: 'Scanning images & media...', duration: 350 },
   { icon: Share2, label: 'Analyzing Open Graph tags...', duration: 300 },
   { icon: Scale, label: 'Checking legal compliance...', duration: 300 },

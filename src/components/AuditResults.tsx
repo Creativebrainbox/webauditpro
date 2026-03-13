@@ -45,7 +45,7 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
   const passedCount = result.issues.filter(i => i.severity === 'info').length;
 
   // Check if active section is an extended audit section
-  const extendedSections = ['headers', 'dns', 'email', 'ssl', 'safebrowsing', 'favicon', 'legal', 'opengraph', 'brokenlinks'];
+  const extendedSections = ['headers', 'dns', 'email', 'ssl', 'safebrowsing', 'favicon', 'legal', 'opengraph', 'brokenlinks', 'tracking', 'contentquality', 'robotstxt', 'sitemap'];
   const isExtendedSection = extendedSections.includes(activeSection);
 
   return (
@@ -76,6 +76,9 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
           activeSection={activeSection}
           onSectionChange={setActiveSection}
           extendedAudit={result.extendedAudit}
+          hasCompetitors={!!result.competitors?.length}
+          hasKeywords={!!result.keywords?.length}
+          hasGrowth={!!result.growthForecast?.length}
         />
 
         {/* Summary Section */}
@@ -185,6 +188,109 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
         {/* Extended Audit Sections */}
         {isExtendedSection && result.extendedAudit && (
           <ExtendedAuditSection data={result.extendedAudit} activeSection={activeSection} />
+        )}
+
+        {/* Competitors Section */}
+        {activeSection === 'competitors' && result.competitors && result.competitors.length > 0 && (
+          <div className="glass-card rounded-xl border border-border/50 p-6 animate-fade-up">
+            <h3 className="font-semibold text-lg mb-4">Competitor Comparison</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Competitor</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Health Score</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Authority Gap</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Content Gap</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Speed Gap</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.competitors.map((c, i) => (
+                    <tr key={i} className="border-b border-border/30">
+                      <td className="py-3 px-4 font-medium">{c.name}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={cn('font-bold', c.healthScore >= 70 ? 'text-success' : c.healthScore >= 50 ? 'text-warning' : 'text-destructive')}>{c.healthScore}</span>
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono text-sm">{c.authorityGap}</td>
+                      <td className="py-3 px-4 text-center font-mono text-sm">{c.contentVolumeGap}</td>
+                      <td className="py-3 px-4 text-center font-mono text-sm">{c.pageSpeedGap}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Keywords Section */}
+        {activeSection === 'keywords' && result.keywords && result.keywords.length > 0 && (
+          <div className="glass-card rounded-xl border border-border/50 p-6 animate-fade-up">
+            <h3 className="font-semibold text-lg mb-4">Keyword Opportunities</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Keyword</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Monthly Searches</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Competition</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Current Rank</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Opportunity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.keywords.map((k, i) => (
+                    <tr key={i} className="border-b border-border/30">
+                      <td className="py-3 px-4 font-medium">{k.keyword}</td>
+                      <td className="py-3 px-4 text-center">{k.monthlySearches.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium',
+                          k.competition === 'Low' ? 'bg-success/10 text-success' :
+                          k.competition === 'Medium' ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive'
+                        )}>{k.competition}</span>
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono">{k.currentRank}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium',
+                          k.opportunity === 'High' ? 'bg-success/10 text-success' :
+                          k.opportunity === 'Medium' ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground'
+                        )}>{k.opportunity}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Growth Forecast Section */}
+        {activeSection === 'growth' && result.growthForecast && result.growthForecast.length > 0 && (
+          <div className="glass-card rounded-xl border border-border/50 p-6 animate-fade-up">
+            <h3 className="font-semibold text-lg mb-4">Growth Forecast</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Area</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Action</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">SEO Lift</th>
+                    <th className="text-center py-3 px-4 font-medium text-muted-foreground">Conversion Lift</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.growthForecast.map((g, i) => (
+                    <tr key={i} className="border-b border-border/30">
+                      <td className="py-3 px-4 font-medium">{g.area}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{g.action}</td>
+                      <td className="py-3 px-4 text-center font-mono text-success">{g.seoLift}</td>
+                      <td className="py-3 px-4 text-center font-mono text-primary">{g.conversionLift}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {/* All Issues Section */}
