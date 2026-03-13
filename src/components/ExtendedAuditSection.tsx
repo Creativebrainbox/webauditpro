@@ -2,7 +2,8 @@ import { ExtendedAuditData } from '@/types/audit';
 import { cn } from '@/lib/utils';
 import { 
   Shield, CheckCircle2, XCircle, AlertTriangle, Globe, Mail, 
-  Lock, FileWarning, Share2, Link2, Scale, Image as ImageIcon
+  Lock, FileWarning, Share2, Link2, Scale, Image as ImageIcon,
+  Activity, FileSearch, Map, FileText
 } from 'lucide-react';
 
 interface ExtendedAuditSectionProps {
@@ -282,6 +283,155 @@ export const ExtendedAuditSection = ({ data, activeSection }: ExtendedAuditSecti
                 <span className="text-sm truncate">{link.url}</span>
               </div>
             ))}
+          </div>
+        )}
+      </SectionWrapper>
+    );
+  }
+
+  // Tracking Tools
+  if (activeSection === 'tracking' && data.trackingTools) {
+    const tt = data.trackingTools;
+    const detected = tt.tools.filter(t => t.status === 'detected');
+    const notDetected = tt.tools.filter(t => t.status === 'not_detected');
+    return (
+      <SectionWrapper title="Tracking Tools & Analytics" icon={Activity}>
+        <p className="text-sm text-muted-foreground mb-4">
+          <span className="text-foreground font-bold">{detected.length}</span> tracking tools detected
+        </p>
+        {detected.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold mb-2 text-success">Detected</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {detected.map((t, i) => (
+                <div key={i} className="flex items-center gap-2 p-3 rounded-lg bg-success/5 border border-success/20">
+                  <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                  <div>
+                    <span className="text-sm font-medium">{t.name}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{t.category}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {notDetected.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Not Detected</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {notDetected.map((t, i) => (
+                <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-muted/20 border border-border/30">
+                  <XCircle className="w-3 h-3 text-muted-foreground shrink-0" />
+                  <span className="text-sm text-muted-foreground">{t.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </SectionWrapper>
+    );
+  }
+
+  // Content Quality
+  if (activeSection === 'contentquality' && data.contentQuality) {
+    const cq = data.contentQuality;
+    return (
+      <SectionWrapper title="Content Quality" icon={FileText}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+            <span className="text-sm text-muted-foreground">Word Count</span>
+            <p className="text-2xl font-bold">{cq.wordCount.toLocaleString()}</p>
+          </div>
+          <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+            <span className="text-sm text-muted-foreground">Readability</span>
+            <p className="text-2xl font-bold">{cq.readabilityScore}<span className="text-sm font-normal text-muted-foreground">/100</span></p>
+            <p className="text-xs text-muted-foreground">{cq.readabilityGrade}</p>
+          </div>
+          <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+            <span className="text-sm text-muted-foreground">Content/Code Ratio</span>
+            <p className="text-2xl font-bold">{cq.contentToCodeRatio}%</p>
+          </div>
+          <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+            <span className="text-sm text-muted-foreground">Paragraphs</span>
+            <p className="text-2xl font-bold">{cq.paragraphCount}</p>
+          </div>
+          <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+            <span className="text-sm text-muted-foreground">Avg. Sentence Length</span>
+            <p className="text-2xl font-bold">{cq.averageSentenceLength} <span className="text-sm font-normal text-muted-foreground">words</span></p>
+          </div>
+        </div>
+        <div className="mt-4">
+          <StatusBadge ok={cq.contentToCodeRatio >= 10} label={cq.contentToCodeRatio >= 10 ? 'Good content-to-code ratio' : 'Low content-to-code ratio — consider adding more text content'} />
+        </div>
+      </SectionWrapper>
+    );
+  }
+
+  // Robots.txt
+  if (activeSection === 'robotstxt' && data.robotsTxt) {
+    const rt = data.robotsTxt;
+    return (
+      <SectionWrapper title="Robots.txt" icon={FileSearch}>
+        <StatusBadge ok={rt.exists} label={rt.exists ? 'robots.txt found' : 'robots.txt not found'} />
+        {rt.exists && (
+          <>
+            {rt.disallowedPaths.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Disallowed Paths</h4>
+                <div className="space-y-1">
+                  {rt.disallowedPaths.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2 rounded bg-warning/5 border border-warning/20">
+                      <XCircle className="w-3 h-3 text-warning shrink-0" />
+                      <span className="text-sm font-mono">{p || '(empty)'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {rt.sitemapReferences.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Sitemap References</h4>
+                {rt.sitemapReferences.map((s, i) => (
+                  <div key={i} className="p-2 rounded bg-success/5 border border-success/20">
+                    <a href={s} target="_blank" rel="noopener noreferrer" className="text-sm text-primary font-mono hover:underline">{s}</a>
+                  </div>
+                ))}
+              </div>
+            )}
+            {rt.content && (
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Raw Content</h4>
+                <pre className="p-4 rounded-lg bg-muted/30 border border-border/50 text-xs font-mono overflow-auto max-h-60 whitespace-pre-wrap">
+                  {rt.content}
+                </pre>
+              </div>
+            )}
+          </>
+        )}
+      </SectionWrapper>
+    );
+  }
+
+  // Sitemap
+  if (activeSection === 'sitemap' && data.sitemap) {
+    const sm = data.sitemap;
+    return (
+      <SectionWrapper title="Sitemap" icon={Map}>
+        <StatusBadge ok={sm.exists} label={sm.exists ? 'Sitemap found' : 'Sitemap not found'} />
+        {sm.exists && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
+            <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+              <span className="text-sm text-muted-foreground">Format</span>
+              <p className="font-semibold">{sm.format}</p>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+              <span className="text-sm text-muted-foreground">URLs Found</span>
+              <p className="font-semibold">{sm.urlCount}</p>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+              <span className="text-sm text-muted-foreground">URL</span>
+              <a href={sm.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary truncate block hover:underline">{sm.url}</a>
+            </div>
           </div>
         )}
       </SectionWrapper>
