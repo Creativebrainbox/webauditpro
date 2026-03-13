@@ -152,8 +152,8 @@ const statusDotColors = {
   error: 'bg-destructive',
 };
 
-export const ReportNavigation = ({ activeSection, onSectionChange, extendedAudit }: ReportNavigationProps) => {
-  const items = getNavItems(extendedAudit);
+export const ReportNavigation = ({ activeSection, onSectionChange, extendedAudit, hasCompetitors, hasKeywords, hasGrowth }: ReportNavigationProps) => {
+  const items = getNavItems(extendedAudit, hasCompetitors, hasKeywords, hasGrowth);
 
   return (
     <div className="glass-card rounded-xl border border-border/50 p-2 mb-6 overflow-x-auto">
