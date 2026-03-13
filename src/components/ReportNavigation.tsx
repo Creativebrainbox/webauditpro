@@ -2,7 +2,8 @@ import { cn } from '@/lib/utils';
 import { 
   BarChart3, Shield, Globe, Mail, Zap, Lock, FileWarning, 
   Share2, Link2, Scale, Image, Search, Eye, Smartphone, 
-  TrendingUp, AlertTriangle, CheckCircle2, FileText
+  TrendingUp, AlertTriangle, CheckCircle2, FileText, Activity,
+  FileSearch, Map, Users, Target, BarChart
 } from 'lucide-react';
 import { ExtendedAuditData } from '@/types/audit';
 
@@ -17,13 +18,17 @@ interface ReportNavigationProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
   extendedAudit?: ExtendedAuditData;
+  hasCompetitors?: boolean;
+  hasKeywords?: boolean;
+  hasGrowth?: boolean;
 }
 
-function getNavItems(ext?: ExtendedAuditData): ReportNavItem[] {
+function getNavItems(ext?: ExtendedAuditData, hasCompetitors?: boolean, hasKeywords?: boolean, hasGrowth?: boolean): ReportNavItem[] {
   const items: ReportNavItem[] = [
     { id: 'summary', label: 'Summary', icon: BarChart3 },
     { id: 'seo', label: 'SEO', icon: Search },
     { id: 'performance', label: 'Performance', icon: Zap },
+    { id: 'contentquality', label: 'Content Quality', icon: FileText, status: getContentQualityStatus(ext) },
     { id: 'headers', label: 'Headers Security', icon: Shield, status: getHeadersStatus(ext) },
     { id: 'dns', label: 'DNS', icon: Globe, status: getDnsStatus(ext) },
     { id: 'email', label: 'Email', icon: Mail, status: getEmailStatus(ext) },
@@ -31,12 +36,18 @@ function getNavItems(ext?: ExtendedAuditData): ReportNavItem[] {
     { id: 'safebrowsing', label: 'Safe Browsing', icon: Shield, status: getSafeBrowsingStatus(ext) },
     { id: 'mobile', label: 'Mobile', icon: Smartphone },
     { id: 'accessibility', label: 'Accessibility', icon: Eye },
+    { id: 'tracking', label: 'Tracking Tools', icon: Activity, status: getTrackingStatus(ext) },
+    { id: 'robotstxt', label: 'Robots.txt', icon: FileSearch, status: getRobotsTxtStatus(ext) },
+    { id: 'sitemap', label: 'Sitemap', icon: Map, status: getSitemapStatus(ext) },
     { id: 'opengraph', label: 'Open Graph', icon: Share2, status: getOgStatus(ext) },
     { id: 'favicon', label: 'Favicon', icon: Image, status: getFaviconStatus(ext) },
     { id: 'legal', label: 'Legal', icon: Scale, status: getLegalStatus(ext) },
     { id: 'brokenlinks', label: 'Broken Links', icon: Link2, status: getBrokenLinksStatus(ext) },
-    { id: 'issues', label: 'All Issues', icon: AlertTriangle },
   ];
+  if (hasCompetitors) items.push({ id: 'competitors', label: 'Competitors', icon: Users });
+  if (hasKeywords) items.push({ id: 'keywords', label: 'Keywords', icon: Target });
+  if (hasGrowth) items.push({ id: 'growth', label: 'Growth Forecast', icon: TrendingUp });
+  items.push({ id: 'issues', label: 'All Issues', icon: AlertTriangle });
   return items;
 }
 
