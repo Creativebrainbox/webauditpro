@@ -688,6 +688,7 @@ IMPORTANT:
       growthForecast: analysis.growthForecast || [],
       detectedPlatform, technologies, advancedSeo,
       extendedAudit,
+      screenshotUrl: `https://image.thum.io/get/width/1200/noanimate/${formattedUrl}`,
     };
 
     const { data: reportRow, error: dbError } = await supabase

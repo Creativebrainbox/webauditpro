@@ -203,6 +203,7 @@ export interface AuditResult {
   extendedAudit?: ExtendedAuditData;
   summary?: string;
   reportId?: string;
+  screenshotUrl?: string;
 }
 
 export type AuditStatus = 'idle' | 'loading' | 'complete' | 'error';

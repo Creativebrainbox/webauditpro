@@ -8,8 +8,8 @@ interface ProposalDownloadProps {
 }
 
 export const ProposalDownload = ({ result }: ProposalDownloadProps) => {
-  const downloadProposal = () => {
-    generateAuditPDF(result);
+  const downloadProposal = async () => {
+    await generateAuditPDF(result);
   };
 
   return (

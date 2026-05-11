@@ -68,6 +68,30 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
           {result.technologies && result.technologies.length > 0 && <TechStack technologies={result.technologies} />}
         </div>
 
+        {/* Website Front-Page Preview — confirm it's the right site */}
+        {result.screenshotUrl && (
+          <div className="glass-card rounded-xl border border-border/50 overflow-hidden animate-fade-up">
+            <div className="flex items-center justify-between px-4 py-2 bg-muted/40 border-b border-border/50">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-destructive/70" />
+                <span className="w-3 h-3 rounded-full bg-warning/70" />
+                <span className="w-3 h-3 rounded-full bg-success/70" />
+                <span className="ml-3 text-xs font-mono text-muted-foreground truncate max-w-xs">{result.url}</span>
+              </div>
+              <span className="text-xs text-muted-foreground hidden sm:inline">Website Preview</span>
+            </div>
+            <a href={result.url} target="_blank" rel="noopener noreferrer" className="block bg-background">
+              <img
+                src={result.screenshotUrl}
+                alt={`Front page of ${result.domain}`}
+                loading="lazy"
+                className="w-full h-auto max-h-[420px] object-cover object-top"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </a>
+          </div>
+        )}
+
         {/* Overall Score */}
         <OverallScore result={result} />
 
