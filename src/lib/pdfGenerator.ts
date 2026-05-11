@@ -170,7 +170,25 @@ function buildSwot(result: AuditResult): SwotData {
   return { strengths, weaknesses, opportunities, threats };
 }
 
-export function generateAuditPDF(result: AuditResult): void {
+async function fetchImageAsDataUrl(url: string): Promise<{ data: string; format: 'PNG' | 'JPEG' } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const format: 'PNG' | 'JPEG' = blob.type.includes('png') ? 'PNG' : 'JPEG';
+    const data: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    return { data, format };
+  } catch {
+    return null;
+  }
+}
+
+export async function generateAuditPDF(result: AuditResult): Promise<void> {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -187,6 +205,9 @@ export function generateAuditPDF(result: AuditResult): void {
 
   const swot = buildSwot(result);
   const annualImpact = (result.totalRevenueLoss + result.potentialRevenueGain) * 12;
+
+  // Pre-fetch website screenshot for the cover
+  const screenshot = result.screenshotUrl ? await fetchImageAsDataUrl(result.screenshotUrl) : null;
 
   // =================== COVER ===================
   doc.setFillColor(...COLORS.dark);
