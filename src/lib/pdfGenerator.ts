@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { AuditResult } from '@/types/audit';
+import { AuditResult, AuditIssue } from '@/types/audit';
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('en-US', {
@@ -12,17 +12,21 @@ const formatCurrency = (amount: number): string => {
 };
 
 const COLORS = {
-  primary: [30, 58, 138] as [number, number, number],      // deep blue
-  accent: [59, 130, 246] as [number, number, number],       // bright blue
-  dark: [15, 23, 42] as [number, number, number],           // slate-900
-  text: [30, 41, 59] as [number, number, number],           // slate-800
-  muted: [100, 116, 139] as [number, number, number],       // slate-500
-  light: [241, 245, 249] as [number, number, number],       // slate-100
+  primary: [30, 58, 138] as [number, number, number],
+  accent: [59, 130, 246] as [number, number, number],
+  dark: [15, 23, 42] as [number, number, number],
+  text: [30, 41, 59] as [number, number, number],
+  muted: [100, 116, 139] as [number, number, number],
+  light: [241, 245, 249] as [number, number, number],
   white: [255, 255, 255] as [number, number, number],
   green: [22, 163, 74] as [number, number, number],
+  greenSoft: [220, 252, 231] as [number, number, number],
   yellow: [202, 138, 4] as [number, number, number],
+  yellowSoft: [254, 249, 195] as [number, number, number],
   red: [220, 38, 38] as [number, number, number],
+  redSoft: [254, 226, 226] as [number, number, number],
   orange: [234, 88, 12] as [number, number, number],
+  blueSoft: [219, 234, 254] as [number, number, number],
 };
 
 function getStatusLabel(score: number): { label: string; color: [number, number, number] } {
@@ -32,13 +36,138 @@ function getStatusLabel(score: number): { label: string; color: [number, number,
   return { label: 'Critical', color: COLORS.red };
 }
 
-function getSeverityColor(severity: string): [number, number, number] {
-  switch (severity) {
-    case 'critical': return COLORS.red;
-    case 'error': return COLORS.orange;
-    case 'warning': return COLORS.yellow;
-    default: return COLORS.accent;
+// ---------- SWOT derivation ----------
+interface SwotItem { title: string; detail: string; tag?: string }
+interface SwotData {
+  strengths: SwotItem[];
+  weaknesses: SwotItem[];
+  opportunities: SwotItem[];
+  threats: SwotItem[];
+}
+
+function buildSwot(result: AuditResult): SwotData {
+  const strengths: SwotItem[] = [];
+  const weaknesses: SwotItem[] = [];
+  const opportunities: SwotItem[] = [];
+  const threats: SwotItem[] = [];
+
+  // --- Strengths from category scores ---
+  const scoreMap: { name: string; score: number }[] = [
+    { name: 'SEO', score: result.seoScore },
+    { name: 'Performance', score: result.pageSpeed },
+    { name: 'Security', score: result.securityScore },
+    { name: 'Accessibility', score: result.accessibilityScore },
+    { name: 'Mobile Experience', score: result.mobileScore },
+    { name: 'Conversion Readiness', score: result.conversionScore },
+  ];
+  scoreMap.forEach(s => {
+    if (s.score >= 80) {
+      strengths.push({
+        title: `Strong ${s.name} foundation`,
+        detail: `Scoring ${s.score}/100, ${s.name.toLowerCase()} is performing above industry benchmarks and reinforces user trust.`,
+        tag: `${s.score}/100`,
+      });
+    } else if (s.score < 50) {
+      weaknesses.push({
+        title: `Underperforming ${s.name}`,
+        detail: `${s.name} scored ${s.score}/100, signalling a structural gap that erodes user experience and search visibility.`,
+        tag: `${s.score}/100`,
+      });
+    }
+  });
+
+  // --- Strengths from passing checks ---
+  result.issues
+    .filter(i => i.severity === 'info')
+    .slice(0, 6)
+    .forEach(i =>
+      strengths.push({ title: i.title, detail: i.description, tag: i.category })
+    );
+
+  // --- Weaknesses from critical / error issues ---
+  result.issues
+    .filter(i => i.severity === 'critical' || i.severity === 'error')
+    .forEach(i =>
+      weaknesses.push({
+        title: i.title,
+        detail: `${i.description} ${i.recommendation ? 'Fix: ' + i.recommendation : ''}`.trim(),
+        tag: i.category,
+      })
+    );
+
+  // --- Threats: security/compliance warnings + competitor advantages ---
+  const threatCategories = ['Security', 'SSL', 'Headers', 'DNS', 'Email', 'Legal', 'Safe Browsing'];
+  result.issues
+    .filter(i => i.severity === 'warning' && threatCategories.some(c => i.category.toLowerCase().includes(c.toLowerCase())))
+    .forEach(i =>
+      threats.push({
+        title: i.title,
+        detail: i.description,
+        tag: i.category,
+      })
+    );
+
+  if (result.competitors) {
+    result.competitors.forEach(c => {
+      if (c.healthScore > result.overallScore) {
+        threats.push({
+          title: `${c.name} outranks you`,
+          detail: `Competitor health score ${c.healthScore} vs. your ${result.overallScore}. Authority gap: ${c.authorityGap}, content gap: ${c.contentVolumeGap}, speed gap: ${c.pageSpeedGap}.`,
+          tag: 'Competitor',
+        });
+      }
+    });
   }
+
+  if (result.totalRevenueLoss > 0) {
+    threats.push({
+      title: 'Active monthly revenue leakage',
+      detail: `Current friction is estimated to cost ${formatCurrency(result.totalRevenueLoss)} every month in lost conversions and traffic.`,
+      tag: 'Revenue',
+    });
+  }
+
+  // --- Opportunities from keywords + growth forecast + closeable gaps ---
+  if (result.keywords) {
+    result.keywords
+      .filter(k => k.opportunity === 'High')
+      .slice(0, 6)
+      .forEach(k =>
+        opportunities.push({
+          title: `Capture "${k.keyword}"`,
+          detail: `${k.monthlySearches.toLocaleString()} monthly searches, ${k.competition.toLowerCase()} competition, currently ranked ${k.currentRank}.`,
+          tag: 'Keyword',
+        })
+      );
+  }
+  if (result.growthForecast) {
+    result.growthForecast.slice(0, 6).forEach(g =>
+      opportunities.push({
+        title: g.area,
+        detail: `${g.action} — projected SEO lift ${g.seoLift}, conversion lift ${g.conversionLift}.`,
+        tag: 'Growth',
+      })
+    );
+  }
+  if (result.potentialRevenueGain > 0) {
+    opportunities.push({
+      title: 'Recoverable monthly revenue',
+      detail: `Implementing the recommended fixes is projected to unlock ${formatCurrency(result.potentialRevenueGain)} in additional monthly revenue.`,
+      tag: 'Revenue',
+    });
+  }
+
+  // Fallbacks so quadrants are never empty
+  if (strengths.length === 0)
+    strengths.push({ title: 'Site is online and indexable', detail: 'The domain responds and serves content to search engines.' });
+  if (weaknesses.length === 0)
+    weaknesses.push({ title: 'No critical weaknesses surfaced', detail: 'Continue monitoring scores monthly to maintain posture.' });
+  if (opportunities.length === 0)
+    opportunities.push({ title: 'Compound on current strengths', detail: 'Double down on the highest-scoring categories to widen the competitive moat.' });
+  if (threats.length === 0)
+    threats.push({ title: 'Watch for emerging competitors', detail: 'Maintain quarterly competitive scans to detect shifts early.' });
+
+  return { strengths, weaknesses, opportunities, threats };
 }
 
 export function generateAuditPDF(result: AuditResult): void {
@@ -56,68 +185,62 @@ export function generateAuditPDF(result: AuditResult): void {
     }
   };
 
-  // =================== PAGE 1: COVER ===================
-  // Full-page dark header
+  const swot = buildSwot(result);
+  const annualImpact = (result.totalRevenueLoss + result.potentialRevenueGain) * 12;
+
+  // =================== COVER ===================
   doc.setFillColor(...COLORS.dark);
-  doc.rect(0, 0, pageWidth, 120, 'F');
-
-  // Accent line
+  doc.rect(0, 0, pageWidth, 130, 'F');
   doc.setFillColor(...COLORS.accent);
-  doc.rect(0, 120, pageWidth, 3, 'F');
+  doc.rect(0, 130, pageWidth, 3, 'F');
 
-  // Title
   doc.setTextColor(...COLORS.white);
-  doc.setFontSize(28);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Website Performance &', pageWidth / 2, 45, { align: 'center' });
-  doc.text('ROI Optimization Audit', pageWidth / 2, 58, { align: 'center' });
-
-  // Subtitle details
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
+  doc.text('STRATEGIC WEBSITE AUDIT', pageWidth / 2, 40, { align: 'center' });
+
+  doc.setFontSize(28);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SWOT Analysis Report', pageWidth / 2, 60, { align: 'center' });
+
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
   doc.setTextColor(180, 200, 230);
+  doc.text('Strengths · Weaknesses · Opportunities · Threats', pageWidth / 2, 72, { align: 'center' });
+
   const date = new Date(result.auditDate).toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
-  doc.text(`PREPARED FOR: ${result.domain}`, pageWidth / 2, 80, { align: 'center' });
-  doc.text(`DOMAIN: ${result.url}`, pageWidth / 2, 88, { align: 'center' });
-  doc.text(`DATE: ${date}`, pageWidth / 2, 96, { align: 'center' });
-  doc.text('PREPARED BY: WebAudit Pro', pageWidth / 2, 104, { align: 'center' });
+  doc.setFontSize(11);
+  doc.text(`PREPARED FOR: ${result.domain}`, pageWidth / 2, 95, { align: 'center' });
+  doc.text(`DOMAIN: ${result.url}`, pageWidth / 2, 103, { align: 'center' });
+  doc.text(`DATE: ${date}`, pageWidth / 2, 111, { align: 'center' });
+  doc.text('PREPARED BY: WebAudit Pro', pageWidth / 2, 119, { align: 'center' });
 
-  // =================== 1. EXECUTIVE SUMMARY ===================
-  y = 140;
+  // =================== EXECUTIVE SUMMARY ===================
+  y = 150;
   doc.setTextColor(...COLORS.primary);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('1. Executive Summary', margin, y);
-  y += 10;
+  doc.text('Executive Summary', margin, y);
+  y += 9;
 
   doc.setTextColor(...COLORS.text);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const summaryText = `This audit provides a strategic analysis of the current digital infrastructure of ${result.domain}. Our evaluation identifies ${result.issues.length} critical friction points currently obstructing search visibility, brand trust, and conversion efficiency.\n\nBy implementing the recommended optimizations, ${result.domain} stands to recover significant lost revenue and capitalize on untapped market demand.`;
+  const summaryText = `This SWOT-based audit assesses ${result.domain} across SEO, performance, security, content, and conversion dimensions. We identified ${swot.strengths.length} strengths to defend, ${swot.weaknesses.length} weaknesses to remediate, ${swot.opportunities.length} opportunities to capture, and ${swot.threats.length} threats to mitigate.`;
   const summaryLines = doc.splitTextToSize(summaryText, contentWidth);
   doc.text(summaryLines, margin, y);
-  y += summaryLines.length * 5 + 8;
-
-  // Performance Snapshot table
-  doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Performance Snapshot', margin, y);
-  y += 6;
-
-  const annualImpact = (result.totalRevenueLoss + result.potentialRevenueGain) * 12;
+  y += summaryLines.length * 5 + 6;
 
   autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
-    head: [],
     body: [
-      ['Overall Website Health Score:', `${result.overallScore} / 100`],
-      ['Identified Monthly Revenue Loss:', formatCurrency(result.totalRevenueLoss)],
-      ['Projected Monthly Revenue Gain:', formatCurrency(result.potentialRevenueGain)],
-      ['Total Annual Growth Opportunity:', formatCurrency(annualImpact)],
+      ['Overall Health Score', `${result.overallScore} / 100`],
+      ['Monthly Revenue Loss', formatCurrency(result.totalRevenueLoss)],
+      ['Projected Monthly Gain', formatCurrency(result.potentialRevenueGain)],
+      ['Annual Growth Opportunity', formatCurrency(annualImpact)],
     ],
     theme: 'plain',
     styles: { fontSize: 10, cellPadding: 4, textColor: COLORS.text },
@@ -127,52 +250,212 @@ export function generateAuditPDF(result: AuditResult): void {
     },
     alternateRowStyles: { fillColor: COLORS.light },
   });
+  y = (doc as any).lastAutoTable.finalY + 12;
 
-  y = (doc as any).lastAutoTable.finalY + 10;
-
-  // Departmental Scores
+  // =================== SWOT MATRIX (visual 2x2) ===================
+  doc.addPage();
+  y = 25;
   doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(14);
+  doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text('Departmental Scores', margin, y);
+  doc.text('SWOT Matrix', margin, y);
   y += 6;
+  doc.setTextColor(...COLORS.muted);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'italic');
+  doc.text('A strategic snapshot of internal posture and external positioning.', margin, y);
+  y += 10;
 
-  const scoreRows: string[][] = [];
-  const categoryScoreMap: Record<string, number> = {
-    'Security': result.securityScore,
-    'SEO': result.seoScore,
-    'Performance': result.pageSpeed,
-    'Mobile': result.mobileScore,
-    'Accessibility': result.accessibilityScore,
-    'Conversion': result.conversionScore,
+  const cellW = (contentWidth - 6) / 2;
+  const cellH = 110;
+
+  const drawQuadrant = (
+    x: number,
+    qy: number,
+    title: string,
+    items: SwotItem[],
+    bg: [number, number, number],
+    accent: [number, number, number],
+    icon: string
+  ) => {
+    doc.setFillColor(...bg);
+    doc.roundedRect(x, qy, cellW, cellH, 3, 3, 'F');
+
+    // header bar
+    doc.setFillColor(...accent);
+    doc.roundedRect(x, qy, cellW, 12, 3, 3, 'F');
+    doc.rect(x, qy + 6, cellW, 6, 'F');
+
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${icon}  ${title}`, x + 5, qy + 8);
+
+    doc.setTextColor(...COLORS.text);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    let ty = qy + 18;
+    const max = 5;
+    items.slice(0, max).forEach(item => {
+      const line = doc.splitTextToSize(`• ${item.title}`, cellW - 8);
+      if (ty + line.length * 4 > qy + cellH - 4) return;
+      doc.setFont('helvetica', 'bold');
+      doc.text(line, x + 4, ty);
+      ty += line.length * 4 + 1;
+    });
+    if (items.length > max) {
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...COLORS.muted);
+      doc.text(`+ ${items.length - max} more — see detail`, x + 4, qy + cellH - 4);
+    }
   };
 
-  // Also add categories from the result
-  result.categories.forEach(cat => {
-    const status = getStatusLabel(cat.score);
-    scoreRows.push([cat.name, `${cat.score}/100`, status.label]);
-  });
+  drawQuadrant(margin, y, 'STRENGTHS', swot.strengths, COLORS.greenSoft, COLORS.green, 'S');
+  drawQuadrant(margin + cellW + 6, y, 'WEAKNESSES', swot.weaknesses, COLORS.redSoft, COLORS.red, 'W');
+  drawQuadrant(margin, y + cellH + 6, 'OPPORTUNITIES', swot.opportunities, COLORS.blueSoft, COLORS.accent, 'O');
+  drawQuadrant(margin + cellW + 6, y + cellH + 6, 'THREATS', swot.threats, COLORS.yellowSoft, COLORS.orange, 'T');
 
-  // If no categories, use the individual scores
-  if (scoreRows.length === 0) {
-    Object.entries(categoryScoreMap).forEach(([name, score]) => {
+  y += cellH * 2 + 16;
+
+  // =================== DETAIL SECTIONS ===================
+  const renderQuadrantDetail = (
+    title: string,
+    subtitle: string,
+    items: SwotItem[],
+    accent: [number, number, number],
+    bg: [number, number, number]
+  ) => {
+    doc.addPage();
+    y = 25;
+
+    // Section header band
+    doc.setFillColor(...accent);
+    doc.rect(0, y - 10, pageWidth, 22, 'F');
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, margin, y + 3);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
+    doc.text(subtitle, margin, y + 10);
+    y += 22;
+
+    items.forEach((item, idx) => {
+      checkPageBreak(28);
+
+      // Card
+      doc.setFillColor(...bg);
+      const titleLines = doc.splitTextToSize(`${idx + 1}. ${item.title}`, contentWidth - 14);
+      const detailLines = doc.splitTextToSize(item.detail, contentWidth - 14);
+      const cardH = 8 + titleLines.length * 5 + detailLines.length * 4.5 + 8;
+
+      doc.roundedRect(margin, y, contentWidth, cardH, 2, 2, 'F');
+      doc.setFillColor(...accent);
+      doc.rect(margin, y, 3, cardH, 'F');
+
+      // Title
+      doc.setTextColor(...COLORS.dark);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(titleLines, margin + 7, y + 7);
+
+      // Tag
+      if (item.tag) {
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...accent);
+        const tagW = doc.getTextWidth(item.tag.toUpperCase()) + 6;
+        doc.setDrawColor(...accent);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(pageWidth - margin - tagW - 4, y + 3, tagW, 5, 1, 1, 'S');
+        doc.text(item.tag.toUpperCase(), pageWidth - margin - tagW / 2 - 4, y + 6.5, { align: 'center' });
+      }
+
+      // Detail
+      doc.setTextColor(...COLORS.text);
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(detailLines, margin + 7, y + 7 + titleLines.length * 5 + 3);
+
+      y += cardH + 5;
+    });
+  };
+
+  renderQuadrantDetail(
+    'STRENGTHS',
+    'What is working — protect, amplify and market these advantages.',
+    swot.strengths,
+    COLORS.green,
+    COLORS.greenSoft
+  );
+
+  renderQuadrantDetail(
+    'WEAKNESSES',
+    'Internal gaps that are dragging performance down — prioritise for remediation.',
+    swot.weaknesses,
+    COLORS.red,
+    COLORS.redSoft
+  );
+
+  renderQuadrantDetail(
+    'OPPORTUNITIES',
+    'External openings to capture growth, traffic and revenue.',
+    swot.opportunities,
+    COLORS.accent,
+    COLORS.blueSoft
+  );
+
+  renderQuadrantDetail(
+    'THREATS',
+    'External or compounding risks that could erode position if left unaddressed.',
+    swot.threats,
+    COLORS.orange,
+    COLORS.yellowSoft
+  );
+
+  // =================== SUPPORTING DATA ===================
+  // Departmental scores
+  doc.addPage();
+  y = 25;
+  doc.setTextColor(...COLORS.primary);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Supporting Data', margin, y);
+  y += 10;
+
+  doc.setFontSize(13);
+  doc.text('Departmental Scores', margin, y);
+  y += 4;
+
+  const scoreRows: string[][] = [];
+  if (result.categories.length) {
+    result.categories.forEach(cat => {
+      const status = getStatusLabel(cat.score);
+      scoreRows.push([cat.name, `${cat.score}/100`, status.label]);
+    });
+  } else {
+    Object.entries({
+      Security: result.securityScore,
+      SEO: result.seoScore,
+      Performance: result.pageSpeed,
+      Mobile: result.mobileScore,
+      Accessibility: result.accessibilityScore,
+      Conversion: result.conversionScore,
+    }).forEach(([name, score]) => {
       const status = getStatusLabel(score);
       scoreRows.push([name, `${score}/100`, status.label]);
     });
   }
 
   autoTable(doc, {
-    startY: y,
+    startY: y + 2,
     margin: { left: margin, right: margin },
     head: [['Category', 'Score', 'Status']],
     body: scoreRows,
     theme: 'grid',
     headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: 'bold' },
     styles: { fontSize: 10, cellPadding: 4, textColor: COLORS.text },
-    columnStyles: {
-      1: { halign: 'center', fontStyle: 'bold' },
-      2: { halign: 'center' },
-    },
+    columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 2: { halign: 'center' } },
     alternateRowStyles: { fillColor: COLORS.light },
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === 2) {
@@ -184,444 +467,185 @@ export function generateAuditPDF(result: AuditResult): void {
       }
     },
   });
+  y = (doc as any).lastAutoTable.finalY + 10;
 
-  y = (doc as any).lastAutoTable.finalY + 12;
-
-  // =================== 2. CRITICAL FINDINGS ===================
-  checkPageBreak(30);
-  doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('2. Critical Findings & Strategic Recommendations', margin, y);
-  y += 12;
-
-  const severityOrder = ['critical', 'error', 'warning', 'info'];
-  const sortedIssues = [...result.issues].sort((a, b) =>
-    severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity)
-  );
-
-  // Group issues by category
-  const issuesByCategory: Record<string, typeof sortedIssues> = {};
-  sortedIssues.forEach(issue => {
-    if (!issuesByCategory[issue.category]) issuesByCategory[issue.category] = [];
-    issuesByCategory[issue.category].push(issue);
-  });
-
-  let globalIssueIndex = 1;
-  let categoryIndex = 1;
-
-  Object.entries(issuesByCategory).forEach(([category, issues]) => {
-    checkPageBreak(30);
-
-    // Category header
+  // Competitors
+  if (result.competitors && result.competitors.length) {
+    checkPageBreak(40);
     doc.setTextColor(...COLORS.primary);
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.text(`2.${categoryIndex} ${category}`, margin, y);
-    y += 8;
-
-    issues.forEach((issue) => {
-      checkPageBreak(55);
-
-      // Issue title with severity badge
-      const sevColor = getSeverityColor(issue.severity);
-      doc.setFillColor(...sevColor);
-      doc.roundedRect(margin, y - 4, 4, 4, 1, 1, 'F');
-
-      doc.setTextColor(...COLORS.dark);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Issue #${globalIssueIndex}: ${issue.title}`, margin + 8, y);
-      y += 7;
-
-      // Severity & Priority tags
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setFillColor(...sevColor);
-      doc.roundedRect(margin, y - 3, 30, 5, 1, 1, 'F');
-      doc.setTextColor(...COLORS.white);
-      doc.text(issue.severity.toUpperCase(), margin + 15, y, { align: 'center' });
-
-      doc.setFillColor(...COLORS.muted);
-      doc.roundedRect(margin + 33, y - 3, 30, 5, 1, 1, 'F');
-      doc.text(`${issue.priority.toUpperCase()} PRIORITY`, margin + 48, y, { align: 'center' });
-      y += 8;
-
-      // Finding
-      doc.setTextColor(...COLORS.text);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Finding:', margin, y);
-      doc.setFont('helvetica', 'normal');
-      const descLines = doc.splitTextToSize(issue.description, contentWidth - 5);
-      y += 5;
-      doc.text(descLines, margin, y);
-      y += descLines.length * 4.5 + 3;
-
-      checkPageBreak(25);
-
-      // Impact
-      doc.setFont('helvetica', 'bold');
-      doc.text('Impact:', margin, y);
-      doc.setFont('helvetica', 'normal');
-      const impactLines = doc.splitTextToSize(issue.impact, contentWidth - 5);
-      y += 5;
-      doc.text(impactLines, margin, y);
-      y += impactLines.length * 4.5 + 3;
-
-      checkPageBreak(20);
-
-      // Recommendation
-      doc.setFont('helvetica', 'bold');
-      doc.text('Recommendation:', margin, y);
-      doc.setFont('helvetica', 'normal');
-      const recLines = doc.splitTextToSize(issue.recommendation, contentWidth - 5);
-      y += 5;
-      doc.text(recLines, margin, y);
-      y += recLines.length * 4.5 + 3;
-
-      // Revenue line
-      doc.setTextColor(...COLORS.green);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text(`Projected Monthly Gain: ${formatCurrency(issue.revenueGain)}`, margin, y);
-      y += 3;
-
-      if (issue.revenueLoss > 0) {
-        doc.setTextColor(...COLORS.red);
-        doc.text(`Estimated Monthly Loss: ${formatCurrency(issue.revenueLoss)}`, margin, y);
-        y += 3;
-      }
-
-      y += 8;
-
-      // Divider line
-      doc.setDrawColor(220, 220, 220);
-      doc.setLineWidth(0.3);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 8;
-
-      globalIssueIndex++;
-    });
-
-    categoryIndex++;
-  });
-
-  // =================== 3. COMPETITOR COMPARISON ===================
-  checkPageBreak(40);
-  doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('3. Competitor Comparison', margin, y);
-  y += 8;
-
-  doc.setTextColor(...COLORS.text);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  const compIntro = `The following analysis compares ${result.domain} against key competitors in your industry. Gaps represent where competitors currently have an advantage — these are your highest-leverage improvement opportunities.`;
-  const compIntroLines = doc.splitTextToSize(compIntro, contentWidth);
-  doc.text(compIntroLines, margin, y);
-  y += compIntroLines.length * 5 + 6;
-
-  if (result.competitors && result.competitors.length > 0) {
-    const competitorRows = [
-      [result.domain, String(result.overallScore), '—', '—', '—'],
-      ...result.competitors.map(c => [
-        c.name,
-        String(c.healthScore),
-        c.authorityGap,
-        c.contentVolumeGap,
-        c.pageSpeedGap,
-      ]),
-    ];
-
+    doc.text('Competitor Benchmark', margin, y);
+    y += 4;
     autoTable(doc, {
-      startY: y,
+      startY: y + 2,
       margin: { left: margin, right: margin },
-      head: [['Website', 'Health Score', 'Authority Gap', 'Content Volume Gap', 'Page Speed Gap']],
-      body: competitorRows,
+      head: [['Website', 'Health', 'Authority Gap', 'Content Gap', 'Speed Gap']],
+      body: [
+        [result.domain, String(result.overallScore), '—', '—', '—'],
+        ...result.competitors.map(c => [c.name, String(c.healthScore), c.authorityGap, c.contentVolumeGap, c.pageSpeedGap]),
+      ],
       theme: 'grid',
-      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: 'bold', fontSize: 9 },
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontSize: 9 },
       styles: { fontSize: 9, cellPadding: 4, textColor: COLORS.text },
-      columnStyles: {
-        1: { halign: 'center', fontStyle: 'bold' },
-        2: { halign: 'center' },
-        3: { halign: 'center' },
-        4: { halign: 'center' },
-      },
+      columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center' } },
       didParseCell: (data) => {
-        // Highlight client row
         if (data.section === 'body' && data.row.index === 0) {
           data.cell.styles.fillColor = [235, 244, 255];
           data.cell.styles.fontStyle = 'bold';
         }
-        // Color-code gap columns for competitors
-        if (data.section === 'body' && data.row.index > 0) {
-          const val = String(data.cell.raw || '');
-          if (data.column.index >= 2) {
-            if (val.startsWith('+')) data.cell.styles.textColor = COLORS.red;
-            else if (val.startsWith('-')) data.cell.styles.textColor = COLORS.green;
-          }
-          // Health score coloring
-          if (data.column.index === 1) {
-            const score = parseInt(val);
-            if (score >= 80) data.cell.styles.textColor = COLORS.green;
-            else if (score >= 65) data.cell.styles.textColor = COLORS.yellow;
-            else data.cell.styles.textColor = COLORS.red;
-          }
-        }
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
-
-    // Legend note
-    doc.setFontSize(8);
-    doc.setTextColor(...COLORS.muted);
-    doc.setFont('helvetica', 'italic');
-    doc.text('+ gaps indicate competitor advantage  |  – gaps indicate competitor disadvantage (your advantage)', margin, y);
-    y += 12;
-  } else {
-    doc.setTextColor(...COLORS.muted);
-    doc.setFontSize(10);
-    doc.text('Competitor data not available for this analysis.', margin, y);
-    y += 12;
+    y = (doc as any).lastAutoTable.finalY + 10;
   }
 
-  // =================== 4. KEYWORD OPPORTUNITY ===================
-  checkPageBreak(40);
-  doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('4. Keyword Opportunity Analysis', margin, y);
-  y += 8;
-
-  doc.setTextColor(...COLORS.text);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  const kwIntro = `Based on your site's products, services, and industry context, the following high-intent keywords represent immediate traffic growth opportunities. Targeting these terms can drive qualified visitors who are actively searching for what you offer.`;
-  const kwIntroLines = doc.splitTextToSize(kwIntro, contentWidth);
-  doc.text(kwIntroLines, margin, y);
-  y += kwIntroLines.length * 5 + 6;
-
-  if (result.keywords && result.keywords.length > 0) {
+  // Keywords
+  if (result.keywords && result.keywords.length) {
+    checkPageBreak(40);
+    doc.setTextColor(...COLORS.primary);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Keyword Opportunities', margin, y);
+    y += 4;
     autoTable(doc, {
-      startY: y,
+      startY: y + 2,
       margin: { left: margin, right: margin },
-      head: [['Keyword', 'Monthly Searches', 'Competition', 'Current Rank', 'Opportunity']],
+      head: [['Keyword', 'Searches', 'Competition', 'Rank', 'Opportunity']],
       body: result.keywords.map(k => [
         k.keyword,
-        k.monthlySearches >= 1000
-          ? `${(k.monthlySearches / 1000).toFixed(1)}k`
-          : String(k.monthlySearches),
+        k.monthlySearches >= 1000 ? `${(k.monthlySearches / 1000).toFixed(1)}k` : String(k.monthlySearches),
         k.competition,
         k.currentRank,
         k.opportunity,
       ]),
       theme: 'grid',
-      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: 'bold', fontSize: 9 },
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontSize: 9 },
       styles: { fontSize: 9, cellPadding: 4, textColor: COLORS.text },
-      columnStyles: {
-        1: { halign: 'center' },
-        2: { halign: 'center' },
-        3: { halign: 'center' },
-        4: { halign: 'center', fontStyle: 'bold' },
-      },
-      didParseCell: (data) => {
-        if (data.section === 'body') {
-          // Opportunity column
-          if (data.column.index === 4) {
-            const val = String(data.cell.raw);
-            if (val === 'High') data.cell.styles.textColor = COLORS.green;
-            else if (val === 'Medium') data.cell.styles.textColor = COLORS.yellow;
-            else data.cell.styles.textColor = COLORS.orange;
-          }
-          // Competition column
-          if (data.column.index === 2) {
-            const val = String(data.cell.raw);
-            if (val === 'Low') data.cell.styles.textColor = COLORS.green;
-            else if (val === 'Medium') data.cell.styles.textColor = COLORS.yellow;
-            else data.cell.styles.textColor = COLORS.red;
-          }
-          // Alternate row shading
-          if (data.row.index % 2 === 0) {
-            data.cell.styles.fillColor = COLORS.light;
-          }
-        }
-      },
+      columnStyles: { 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'center' }, 4: { halign: 'center', fontStyle: 'bold' } },
     });
-    y = (doc as any).lastAutoTable.finalY + 12;
-  } else {
-    doc.setTextColor(...COLORS.muted);
-    doc.setFontSize(10);
-    doc.text('Keyword data not available for this analysis.', margin, y);
-    y += 12;
+    y = (doc as any).lastAutoTable.finalY + 10;
   }
 
-  // =================== 5. STRATEGIC GROWTH FORECAST ===================
-  checkPageBreak(50);
-  doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('5. Strategic Growth Forecast', margin, y);
-  y += 6;
-
-  doc.setTextColor(...COLORS.muted);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'italic');
-  doc.text('90-Day Growth Projection', margin, y);
-  y += 8;
-
-  doc.setTextColor(...COLORS.text);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  const forecastIntro = `The following projections are based on the issues identified in this audit and industry benchmarks for similar optimization initiatives. These ranges represent realistic outcomes when improvements are implemented consistently over the next 90 days.`;
-  const forecastIntroLines = doc.splitTextToSize(forecastIntro, contentWidth);
-  doc.text(forecastIntroLines, margin, y);
-  y += forecastIntroLines.length * 5 + 6;
-
-  if (result.growthForecast && result.growthForecast.length > 0) {
+  // Growth forecast
+  if (result.growthForecast && result.growthForecast.length) {
+    checkPageBreak(40);
+    doc.setTextColor(...COLORS.primary);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('90-Day Growth Forecast', margin, y);
+    y += 4;
     autoTable(doc, {
-      startY: y,
+      startY: y + 2,
       margin: { left: margin, right: margin },
-      head: [['Improvement Area', 'Action', 'Expected SEO Traffic Lift', 'Expected Conversion Lift']],
+      head: [['Area', 'Action', 'SEO Lift', 'Conversion Lift']],
       body: result.growthForecast.map(f => [f.area, f.action, f.seoLift, f.conversionLift]),
       theme: 'grid',
-      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: 'bold', fontSize: 9 },
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontSize: 9 },
       styles: { fontSize: 9, cellPadding: 4, textColor: COLORS.text },
       columnStyles: {
         0: { fontStyle: 'bold', cellWidth: 38 },
         1: { cellWidth: 70 },
-        2: { halign: 'center', fontStyle: 'bold', textColor: COLORS.green as [number,number,number], cellWidth: 35 },
-        3: { halign: 'center', fontStyle: 'bold', textColor: COLORS.accent as [number,number,number], cellWidth: 35 },
+        2: { halign: 'center', fontStyle: 'bold', textColor: COLORS.green, cellWidth: 30 },
+        3: { halign: 'center', fontStyle: 'bold', textColor: COLORS.accent, cellWidth: 30 },
       },
       alternateRowStyles: { fillColor: COLORS.light },
     });
-    y = (doc as any).lastAutoTable.finalY + 12;
-
-    // Compute summary totals — just show the last item's lifts as aggregate
-    const allSeoLifts = result.growthForecast.map(f => f.seoLift).filter(l => l !== '—');
-    const allConvLifts = result.growthForecast.map(f => f.conversionLift).filter(l => l !== '—');
-
-    // Summary highlight boxes
-    checkPageBreak(25);
-    const boxW = (contentWidth - 10) / 2;
-
-    if (allSeoLifts.length > 0) {
-      doc.setFillColor(...COLORS.primary);
-      doc.roundedRect(margin, y, boxW, 20, 3, 3, 'F');
-      doc.setTextColor(...COLORS.white);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('TOTAL SEO TRAFFIC LIFT', margin + boxW / 2, y + 6, { align: 'center' });
-      doc.setFontSize(13);
-      doc.setFont('helvetica', 'bold');
-      doc.text(allSeoLifts[allSeoLifts.length - 1], margin + boxW / 2, y + 15, { align: 'center' });
-    }
-
-    if (allConvLifts.length > 0) {
-      doc.setFillColor(...COLORS.green);
-      doc.roundedRect(margin + boxW + 10, y, boxW, 20, 3, 3, 'F');
-      doc.setTextColor(...COLORS.white);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('TOTAL CONVERSION LIFT', margin + boxW + 10 + boxW / 2, y + 6, { align: 'center' });
-      doc.setFontSize(13);
-      doc.setFont('helvetica', 'bold');
-      doc.text(allConvLifts[allConvLifts.length - 1], margin + boxW + 10 + boxW / 2, y + 15, { align: 'center' });
-    }
-
-    y += 30;
-  } else {
-    doc.setTextColor(...COLORS.muted);
-    doc.setFontSize(10);
-    doc.text('Growth forecast data not available for this analysis.', margin, y);
-    y += 12;
+    y = (doc as any).lastAutoTable.finalY + 10;
   }
 
-  // =================== 6. IMPLEMENTATION ROADMAP ===================
-  checkPageBreak(40);
+  // =================== STRATEGIC ROADMAP ===================
+  doc.addPage();
+  y = 25;
   doc.setTextColor(...COLORS.primary);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('6. Implementation Roadmap', margin, y);
-  y += 12;
+  doc.text('Strategic Roadmap', margin, y);
+  y += 4;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(...COLORS.muted);
+  doc.text('Sequenced execution plan derived from the SWOT findings.', margin, y + 6);
+  y += 14;
 
-  const phases = [
-    {
-      title: 'Phase 1: High Priority (Immediate)',
-      filter: 'high',
-      color: COLORS.red,
-    },
-    {
-      title: 'Phase 2: Medium Priority (30 Days)',
-      filter: 'medium',
-      color: COLORS.yellow,
-    },
-    {
-      title: 'Phase 3: Strategic Growth (90 Days)',
-      filter: 'low',
-      color: COLORS.green,
-    },
+  const sortedIssues = [...result.issues].sort((a, b) => {
+    const order = ['critical', 'error', 'warning', 'info'];
+    return order.indexOf(a.severity) - order.indexOf(b.severity);
+  });
+
+  const phases: { title: string; intent: string; filter: AuditIssue['priority']; color: [number, number, number] }[] = [
+    { title: 'Phase 1 — Fix Weaknesses (0–30 days)', intent: 'Eliminate critical issues that are actively damaging trust and conversions.', filter: 'high', color: COLORS.red },
+    { title: 'Phase 2 — Neutralise Threats (30–60 days)', intent: 'Close competitive gaps and harden security posture.', filter: 'medium', color: COLORS.orange },
+    { title: 'Phase 3 — Capture Opportunities (60–90 days)', intent: 'Pursue keywords, content and growth plays that compound on strengths.', filter: 'low', color: COLORS.green },
   ];
 
   phases.forEach(phase => {
     const phaseIssues = sortedIssues.filter(i => i.priority === phase.filter);
-    if (phaseIssues.length === 0) return;
-
-    checkPageBreak(20);
+    checkPageBreak(30);
 
     doc.setFillColor(...phase.color);
-    doc.roundedRect(margin, y - 4, 3, 6, 1, 1, 'F');
+    doc.roundedRect(margin, y - 4, 3, 7, 1, 1, 'F');
     doc.setTextColor(...COLORS.dark);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text(phase.title, margin + 6, y);
-    y += 7;
+    y += 6;
 
-    const totalGain = phaseIssues.reduce((sum, i) => sum + i.revenueGain, 0);
+    doc.setTextColor(...COLORS.muted);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.text(phase.intent, margin + 6, y);
+    y += 6;
 
+    doc.setTextColor(...COLORS.text);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...COLORS.text);
 
-    phaseIssues.forEach(issue => {
-      checkPageBreak(8);
-      doc.text(`•  ${issue.title}`, margin + 6, y);
-      y += 5;
-    });
-
-    doc.setTextColor(...COLORS.green);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Revenue Impact: +${formatCurrency(totalGain)} / month`, margin + 6, y);
-    y += 10;
+    if (phaseIssues.length === 0) {
+      doc.setTextColor(...COLORS.muted);
+      doc.text('•  No items in this phase.', margin + 6, y);
+      y += 6;
+    } else {
+      phaseIssues.forEach(issue => {
+        checkPageBreak(8);
+        const lines = doc.splitTextToSize(`•  ${issue.title}`, contentWidth - 6);
+        doc.text(lines, margin + 6, y);
+        y += lines.length * 5;
+      });
+      const totalGain = phaseIssues.reduce((sum, i) => sum + i.revenueGain, 0);
+      if (totalGain > 0) {
+        doc.setTextColor(...COLORS.green);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Projected impact: +${formatCurrency(totalGain)} / month`, margin + 6, y + 2);
+        y += 6;
+      }
+    }
+    y += 6;
   });
 
-  // =================== 7. ROI SUMMARY ===================
-  checkPageBreak(60);
+  // =================== ROI SUMMARY ===================
+  checkPageBreak(80);
   doc.setTextColor(...COLORS.primary);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('7. ROI Summary & Conclusion', margin, y);
-  y += 10;
+  doc.text('ROI & Conclusion', margin, y);
+  y += 9;
 
   doc.setTextColor(...COLORS.text);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const conclusionText = `The data suggests that the technical and cosmetic issues on ${result.domain} are costing the business approximately ${formatCurrency(result.totalRevenueLoss)} every month. By executing this optimization plan, the brand can transition from a "leaky bucket" to a high-performance sales engine.`;
-  const conclusionLines = doc.splitTextToSize(conclusionText, contentWidth);
+  const conclusion = `Acting on this SWOT plan transitions ${result.domain} from a defensive posture to a growth posture. Defending strengths, fixing weaknesses, capturing opportunities and mitigating threats together unlock an estimated ${formatCurrency(annualImpact)} of annual impact.`;
+  const conclusionLines = doc.splitTextToSize(conclusion, contentWidth);
   doc.text(conclusionLines, margin, y);
-  y += conclusionLines.length * 5 + 8;
+  y += conclusionLines.length * 5 + 6;
 
-  // Final ROI table
   autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
-    head: [],
     body: [
-      ['Monthly Revenue Recovery:', formatCurrency(result.totalRevenueLoss)],
-      ['Additional Monthly Revenue:', formatCurrency(result.potentialRevenueGain)],
-      ['Total Monthly Impact:', formatCurrency(result.totalRevenueLoss + result.potentialRevenueGain)],
-      ['Total Annual Impact:', formatCurrency(annualImpact)],
+      ['Monthly Revenue Recovery', formatCurrency(result.totalRevenueLoss)],
+      ['Additional Monthly Revenue', formatCurrency(result.potentialRevenueGain)],
+      ['Total Monthly Impact', formatCurrency(result.totalRevenueLoss + result.potentialRevenueGain)],
+      ['Total Annual Impact', formatCurrency(annualImpact)],
     ],
     theme: 'plain',
     styles: { fontSize: 11, cellPadding: 5, textColor: COLORS.text },
@@ -631,10 +655,8 @@ export function generateAuditPDF(result: AuditResult): void {
     },
     alternateRowStyles: { fillColor: COLORS.light },
   });
+  y = (doc as any).lastAutoTable.finalY + 12;
 
-  y = (doc as any).lastAutoTable.finalY + 15;
-
-  // Annual highlight box
   checkPageBreak(25);
   doc.setFillColor(...COLORS.primary);
   doc.roundedRect(margin, y, contentWidth, 18, 3, 3, 'F');
@@ -642,46 +664,19 @@ export function generateAuditPDF(result: AuditResult): void {
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text(`Total Annual Impact: ${formatCurrency(annualImpact)}`, pageWidth / 2, y + 11, { align: 'center' });
-  y += 28;
 
-  // Next Steps
-  checkPageBreak(40);
-  doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Next Steps', margin, y);
-  y += 8;
-
-  doc.setTextColor(...COLORS.text);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-
-  const steps = [
-    'Review the high-priority issues and begin implementation immediately.',
-    'Schedule implementation of medium-priority items within the next 30 days.',
-    'Plan for low-priority optimizations within the next quarter.',
-    'Consider a follow-up audit in 90 days to measure improvements.',
-  ];
-
-  steps.forEach((step, i) => {
-    checkPageBreak(8);
-    doc.text(`${i + 1}.  ${step}`, margin, y);
-    y += 6;
-  });
-
-  // Footer on every page
+  // Footer
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(...COLORS.muted);
-    doc.text('Generated by WebAudit Pro', margin, pageHeight - 10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('WebAudit Pro — SWOT Strategic Report', margin, pageHeight - 10);
     doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-    // Bottom accent line
     doc.setFillColor(...COLORS.accent);
     doc.rect(0, pageHeight - 5, pageWidth, 2, 'F');
   }
 
-  // Save
-  doc.save(`website-audit-${result.domain.replace(/\./g, '-')}.pdf`);
+  doc.save(`swot-audit-${result.domain.replace(/\./g, '-')}.pdf`);
 }
