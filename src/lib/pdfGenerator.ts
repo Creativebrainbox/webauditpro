@@ -238,8 +238,46 @@ export async function generateAuditPDF(result: AuditResult): Promise<void> {
   doc.text(`DATE: ${date}`, pageWidth / 2, 111, { align: 'center' });
   doc.text('PREPARED BY: WebAudit Pro', pageWidth / 2, 119, { align: 'center' });
 
+  // =================== WEBSITE PREVIEW (proof of site) ===================
+  if (screenshot) {
+    const previewW = contentWidth;
+    const previewH = 95;
+    const previewY = 142;
+
+    doc.setFillColor(...COLORS.light);
+    doc.roundedRect(margin, previewY, previewW, 8, 1.5, 1.5, 'F');
+    doc.setFillColor(...COLORS.red);
+    doc.circle(margin + 4, previewY + 4, 1.3, 'F');
+    doc.setFillColor(...COLORS.yellow);
+    doc.circle(margin + 8, previewY + 4, 1.3, 'F');
+    doc.setFillColor(...COLORS.green);
+    doc.circle(margin + 12, previewY + 4, 1.3, 'F');
+    doc.setFontSize(7);
+    doc.setTextColor(...COLORS.muted);
+    doc.text(result.url, margin + 18, previewY + 5.2);
+
+    try {
+      doc.addImage(screenshot.data, screenshot.format, margin, previewY + 8, previewW, previewH);
+    } catch {
+      doc.setFillColor(...COLORS.light);
+      doc.rect(margin, previewY + 8, previewW, previewH, 'F');
+    }
+    doc.setDrawColor(...COLORS.muted);
+    doc.setLineWidth(0.2);
+    doc.rect(margin, previewY + 8, previewW, previewH);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(...COLORS.muted);
+    doc.text('Captured front-page snapshot of the audited site.', pageWidth / 2, previewY + previewH + 14, { align: 'center' });
+
+    doc.addPage();
+    y = 25;
+  } else {
+    y = 150;
+  }
+
   // =================== EXECUTIVE SUMMARY ===================
-  y = 150;
   doc.setTextColor(...COLORS.primary);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
