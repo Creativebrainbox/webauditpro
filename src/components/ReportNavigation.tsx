@@ -144,6 +144,38 @@ function getBrokenLinksStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'er
   return 'error';
 }
 
+function getSchemaStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.schemaValidation) return 'warning';
+  const s = ext.schemaValidation;
+  if (!s.hasStructuredData) return 'error';
+  if (s.errorCount > 0) return 'error';
+  if (s.warningCount > 0) return 'warning';
+  return 'good';
+}
+
+function getAiReadinessStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.aiReadiness) return 'warning';
+  if (ext.aiReadiness.recommendationsScore >= 70) return 'good';
+  if (ext.aiReadiness.recommendationsScore >= 40) return 'warning';
+  return 'error';
+}
+
+function getVerificationStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.searchEngineVerification) return 'warning';
+  const v = ext.searchEngineVerification;
+  const count = [v.google.verified, v.bing.verified, v.yandex.verified].filter(Boolean).length;
+  if (v.google.verified) return 'good';
+  if (count > 0) return 'warning';
+  return 'error';
+}
+
+function getSeoRankingStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.seoRanking) return 'warning';
+  if (ext.seoRanking.estimatedAuthority >= 70) return 'good';
+  if (ext.seoRanking.estimatedAuthority >= 40) return 'warning';
+  return 'error';
+}
+
 const statusColors = {
   good: 'text-success',
   warning: 'text-warning',
