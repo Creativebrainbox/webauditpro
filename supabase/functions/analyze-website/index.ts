@@ -274,25 +274,42 @@ async function checkSsl(url: string): Promise<any> {
   };
 }
 
+function recommendBrokenLinkFix(statusCode: number, url: string): { recommendation: string; severity: 'critical' | 'warning' | 'info' } {
+  const path = (() => { try { return new URL(url).pathname; } catch { return url; } })();
+  if (statusCode === 0) return { severity: 'critical', recommendation: `Link is unreachable (DNS/timeout). Verify the host is online or remove the link to "${path}".` };
+  if (statusCode === 404) return { severity: 'critical', recommendation: `Page not found. Either restore the page at "${path}", update the link to its new URL, or add a 301 redirect to the closest matching live page.` };
+  if (statusCode === 410) return { severity: 'critical', recommendation: `Resource permanently gone. Remove the link or replace with a redirect to a relevant live page.` };
+  if (statusCode === 403) return { severity: 'warning', recommendation: `Access forbidden. Check authentication, IP block, or robots/firewall rules preventing the request to "${path}".` };
+  if (statusCode === 401) return { severity: 'warning', recommendation: `Authentication required. Don't link unauthenticated visitors to gated content — link to a public landing page instead.` };
+  if (statusCode === 500 || statusCode === 502 || statusCode === 503 || statusCode === 504) return { severity: 'critical', recommendation: `Server error (${statusCode}). The destination server is failing — fix the upstream error or remove the link until resolved.` };
+  if (statusCode === 429) return { severity: 'warning', recommendation: `Rate limited. The target site is throttling requests; consider caching or reducing crawl frequency.` };
+  if (statusCode >= 400 && statusCode < 500) return { severity: 'warning', recommendation: `Client error ${statusCode}. Review the URL and replace or remove the link.` };
+  if (statusCode >= 500) return { severity: 'critical', recommendation: `Server error ${statusCode}. Destination is unstable — contact the owner or remove the link.` };
+  return { severity: 'info', recommendation: `Unexpected status ${statusCode}. Verify the link manually.` };
+}
+
 async function checkBrokenLinks(links: string[], maxCheck = 15): Promise<any> {
   const toCheck = links.slice(0, maxCheck);
-  const brokenLinks: { url: string; statusCode: number; location: string }[] = [];
-  
-  const results = await Promise.allSettled(
+  const brokenLinks: { url: string; statusCode: number; location: string; recommendation: string; severity: 'critical' | 'warning' | 'info' }[] = [];
+
+  await Promise.allSettled(
     toCheck.map(async (link) => {
       try {
         const resp = await fetch(link, { method: 'HEAD', signal: AbortSignal.timeout(5000), redirect: 'follow' });
         if (resp.status >= 400) {
-          brokenLinks.push({ url: link, statusCode: resp.status, location: 'Page link' });
+          const fix = recommendBrokenLinkFix(resp.status, link);
+          brokenLinks.push({ url: link, statusCode: resp.status, location: 'Page link', ...fix });
         }
       } catch {
-        brokenLinks.push({ url: link, statusCode: 0, location: 'Page link (unreachable)' });
+        const fix = recommendBrokenLinkFix(0, link);
+        brokenLinks.push({ url: link, statusCode: 0, location: 'Page link (unreachable)', ...fix });
       }
     })
   );
 
   return { totalChecked: toCheck.length, brokenCount: brokenLinks.length, brokenLinks };
 }
+
 
 function extractTrackingTools(html: string): any {
   const h = html.toLowerCase();
