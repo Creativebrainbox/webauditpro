@@ -443,20 +443,64 @@ function extractSearchEngineVerification(html: string): any {
 
 function extractAiReadiness(html: string, robotsContent: string, hasLlmsTxt: boolean, llmsTxtUrl: string): any {
   const schemaTypes: string[] = [];
+  const productItems: any[] = [];
+  const offerItems: any[] = [];
   const ldMatches = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
   for (const m of ldMatches) {
     try {
       const parsed = JSON.parse(m[1]);
       const items = Array.isArray(parsed) ? parsed : (parsed['@graph'] ? parsed['@graph'] : [parsed]);
-      for (const item of items) if (item['@type']) schemaTypes.push(String(item['@type']).toLowerCase());
+      for (const item of items) {
+        if (item['@type']) {
+          const t = String(item['@type']).toLowerCase();
+          schemaTypes.push(t);
+          if (t === 'product') productItems.push(item);
+          if (t === 'offer' || t === 'aggregateoffer') offerItems.push(item);
+        }
+      }
     } catch {}
   }
   const hasProductSchema = schemaTypes.includes('product');
   const hasFaqSchema = schemaTypes.includes('faqpage');
   const hasOrganizationSchema = schemaTypes.includes('organization');
   const hasArticleSchema = schemaTypes.some(t => ['article', 'blogposting', 'newsarticle'].includes(t));
+  const hasBreadcrumbSchema = schemaTypes.includes('breadcrumblist');
 
-  const aiBots = ['GPTBot', 'ChatGPT-User', 'Google-Extended', 'PerplexityBot', 'ClaudeBot', 'anthropic-ai', 'CCBot', 'Applebot-Extended'];
+  // AI shopping signals — what ChatGPT Shopping, Perplexity, Google AI Overview look for
+  const productCount = productItems.length;
+  const sampleProduct = productItems[0] || {};
+  const sampleOffer = sampleProduct.offers || offerItems[0] || {};
+  const offerObj = Array.isArray(sampleOffer) ? sampleOffer[0] || {} : sampleOffer;
+
+  const hasPrice = !!(offerObj.price || offerObj.lowPrice || sampleProduct.price);
+  const hasAvailability = !!offerObj.availability;
+  const hasGtin = !!(sampleProduct.gtin || sampleProduct.gtin13 || sampleProduct.gtin12 || sampleProduct.gtin8 || sampleProduct.mpn);
+  const hasBrand = !!sampleProduct.brand;
+  const hasReviewRating = !!(sampleProduct.aggregateRating || sampleProduct.review);
+  const hasImage = !!sampleProduct.image;
+  const hasMerchantListing = hasProductSchema && hasPrice && hasAvailability && (hasGtin || hasBrand);
+
+  // Detect e-commerce-related markup beyond schema
+  const hasOgProduct = /<meta[^>]+property=["']og:type["'][^>]+content=["']product["']/i.test(html) ||
+    /<meta[^>]+content=["']product["'][^>]+property=["']og:type["']/i.test(html);
+  const hasProductFeedHint = /product[-_]?feed|merchant[-_]?center|google[-_]?shopping/i.test(html);
+
+  const aiShoppingSignals = [
+    { signal: 'Product schema present', present: hasProductSchema, impact: 'Required for AI shopping assistants to recognize products' },
+    { signal: 'Price in structured data', present: hasPrice, impact: 'Shown in ChatGPT Shopping / Google AI Overview results' },
+    { signal: 'Availability (in stock) signal', present: hasAvailability, impact: 'AI assistants filter out out-of-stock products' },
+    { signal: 'GTIN / MPN identifier', present: hasGtin, impact: 'Lets AI match your product to merchant catalogs and reviews' },
+    { signal: 'Brand', present: hasBrand, impact: 'Strengthens disambiguation for branded queries' },
+    { signal: 'Aggregate rating / reviews', present: hasReviewRating, impact: 'AI recommendations favor products with social proof' },
+    { signal: 'Product image in schema', present: hasImage, impact: 'Image is shown in shopping cards' },
+    { signal: 'BreadcrumbList schema', present: hasBreadcrumbSchema, impact: 'Helps AI understand catalog hierarchy' },
+    { signal: 'og:type = product', present: hasOgProduct, impact: 'Reinforces product context for social/AI parsers' },
+    { signal: 'Merchant feed reference', present: hasProductFeedHint, impact: 'Indicates a Google Merchant / shopping feed is wired up' },
+  ];
+  const presentShoppingCount = aiShoppingSignals.filter(s => s.present).length;
+  const aiShoppingScore = Math.round((presentShoppingCount / aiShoppingSignals.length) * 100);
+
+  const aiBots = ['GPTBot', 'ChatGPT-User', 'OAI-SearchBot', 'Google-Extended', 'PerplexityBot', 'ClaudeBot', 'anthropic-ai', 'CCBot', 'Applebot-Extended'];
   const lines = robotsContent.split('\n').map(l => l.trim());
   const aiCrawlersAllowed = aiBots.map(bot => {
     let allowed = true;
@@ -474,21 +518,56 @@ function extractAiReadiness(html: string, robotsContent: string, hasLlmsTxt: boo
   });
 
   let score = 0;
-  if (hasLlmsTxt) score += 25;
-  if (hasProductSchema) score += 20;
-  if (hasFaqSchema) score += 15;
-  if (hasOrganizationSchema) score += 15;
-  if (hasArticleSchema) score += 10;
+  if (hasLlmsTxt) score += 20;
+  if (hasProductSchema) score += 15;
+  if (hasFaqSchema) score += 10;
+  if (hasOrganizationSchema) score += 10;
+  if (hasArticleSchema) score += 5;
+  if (hasMerchantListing) score += 15;
   const allowedCount = aiCrawlersAllowed.filter(a => a.allowed).length;
-  score += Math.round((allowedCount / aiBots.length) * 15);
+  score += Math.round((allowedCount / aiBots.length) * 25);
 
   return {
     hasLlmsTxt, llmsTxtUrl,
     hasProductSchema, hasFaqSchema, hasOrganizationSchema, hasArticleSchema,
     aiCrawlersAllowed,
     recommendationsScore: Math.min(100, score),
+    productCount, hasMerchantListing, aiShoppingSignals, aiShoppingScore,
   };
 }
+
+function analyzeRobotsDisallows(content: string): Array<{ path: string; userAgent: string; impact: string; severity: 'good' | 'warning' | 'error' }> {
+  const lines = content.split('\n');
+  let currentAgent = '*';
+  const out: Array<{ path: string; userAgent: string; impact: string; severity: 'good' | 'warning' | 'error' }> = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const low = line.toLowerCase();
+    if (low.startsWith('user-agent:')) {
+      currentAgent = line.split(':').slice(1).join(':').trim() || '*';
+    } else if (low.startsWith('disallow:')) {
+      const path = line.split(':').slice(1).join(':').trim();
+      let impact = ''; let severity: 'good' | 'warning' | 'error' = 'warning';
+      const p = path.toLowerCase();
+      if (path === '') { impact = 'Empty Disallow — effectively allows everything for this user-agent.'; severity = 'good'; }
+      else if (path === '/') { impact = `Blocks the ENTIRE site from ${currentAgent}. Search engines cannot crawl any page — this destroys SEO if applied to "*" or major bots.`; severity = 'error'; }
+      else if (p.includes('/admin') || p.includes('/wp-admin') || p.includes('/cgi-bin')) { impact = 'Hides admin/system paths — safe and recommended.'; severity = 'good'; }
+      else if (p.includes('/cart') || p.includes('/checkout') || p.includes('/account') || p.includes('/login')) { impact = 'Hides user/transactional pages — recommended (prevents crawler load and accidental indexing).'; severity = 'good'; }
+      else if (p.includes('/search') || p.includes('?s=') || p.includes('?q=')) { impact = 'Blocks search-result pages — recommended to avoid thin/duplicate content.'; severity = 'good'; }
+      else if (p.includes('/tag') || p.includes('/category') || p.includes('/archive')) { impact = 'Blocks taxonomy pages — may reduce long-tail traffic if those pages bring search visits.'; severity = 'warning'; }
+      else if (p.includes('/blog') || p.includes('/product') || p.includes('/shop') || p.includes('/article') || p.includes('/post')) { impact = 'Blocks content/product pages — likely harmful to SEO. Verify this is intentional.'; severity = 'error'; }
+      else if (p.includes('*.pdf') || p.endsWith('.pdf')) { impact = 'Blocks PDF indexing — fine for internal docs, harmful if PDFs are public assets.'; severity = 'warning'; }
+      else if (p.includes('/api') || p.includes('/json')) { impact = 'Blocks API endpoints — recommended.'; severity = 'good'; }
+      else if (p.includes('/test') || p.includes('/staging') || p.includes('/dev')) { impact = 'Hides non-production paths — recommended.'; severity = 'good'; }
+      else if (p.startsWith('/*?') || p.includes('?')) { impact = 'Blocks parameterized URLs — usually good for avoiding duplicate content.'; severity = 'good'; }
+      else { impact = `Blocks "${path}" from ${currentAgent}. Confirm no public content lives under this path or it will be invisible in search.`; severity = 'warning'; }
+      out.push({ path: path || '(empty)', userAgent: currentAgent, impact, severity });
+    }
+  }
+  return out;
+}
+
 
 function extractSeoRanking(html: string, advancedSeo: any, links: string[], scores: any): any {
   const noindexMatch = html.match(/<meta[^>]+name=["']robots["'][^>]+content=["']([^"']*)["']/i);
