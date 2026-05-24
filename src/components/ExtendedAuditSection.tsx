@@ -401,7 +401,38 @@ export const ExtendedAuditSection = ({ data, activeSection }: ExtendedAuditSecti
         <StatusBadge ok={rt.exists} label={rt.exists ? 'robots.txt found' : 'robots.txt not found'} />
         {rt.exists && (
           <>
-            {rt.disallowedPaths.length > 0 && (
+            {(rt.disallowedAnalysis && rt.disallowedAnalysis.length > 0) ? (
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold mb-2 text-muted-foreground">
+                  Disallow Directives ({rt.disallowedAnalysis.length}) — SEO & crawl impact
+                </h4>
+                <div className="space-y-2">
+                  {rt.disallowedAnalysis.map((d, i) => (
+                    <div key={i} className={cn(
+                      'p-3 rounded-lg border',
+                      d.severity === 'error' ? 'bg-destructive/5 border-destructive/30' :
+                      d.severity === 'warning' ? 'bg-warning/5 border-warning/30' :
+                      'bg-success/5 border-success/20'
+                    )}>
+                      <div className="flex items-start gap-3">
+                        {d.severity === 'error' ? <XCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" /> :
+                         d.severity === 'warning' ? <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" /> :
+                         <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <code className="text-xs font-mono px-2 py-0.5 rounded bg-muted text-foreground">Disallow: {d.path}</code>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-mono">
+                              UA: {d.userAgent}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{d.impact}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : rt.disallowedPaths.length > 0 && (
               <div className="mt-4">
                 <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Disallowed Paths</h4>
                 <div className="space-y-1">
@@ -414,6 +445,7 @@ export const ExtendedAuditSection = ({ data, activeSection }: ExtendedAuditSecti
                 </div>
               </div>
             )}
+
             {rt.sitemapReferences.length > 0 && (
               <div className="mt-4">
                 <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Sitemap References</h4>
