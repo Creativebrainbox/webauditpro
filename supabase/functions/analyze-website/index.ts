@@ -624,10 +624,22 @@ Deno.serve(async (req) => {
     // Safe browsing (basic check via HTTPS status)
     const safeBrowsing = { isSafe: true, threats: [] };
 
+    // New audit checks
+    const schemaValidation = validateSchemas(htmlContent);
+    const searchEngineVerification = extractSearchEngineVerification(htmlContent);
+    const aiReadiness = extractAiReadiness(
+      htmlContent,
+      robotsResponse.content,
+      llmsTxtResponse.exists,
+      `${domainOrigin}/llms.txt`
+    );
+    const seoRanking = extractSeoRanking(htmlContent, advancedSeo, links, {});
+
     const extendedAudit = {
       headersSecurity, dns, emailSecurity, ssl: sslData,
       safeBrowsing, favicon, legalCompliance, openGraph, brokenLinks: brokenLinksData,
       trackingTools, contentQuality, robotsTxt: robotsTxtData, sitemap: sitemapData,
+      schemaValidation, aiReadiness, searchEngineVerification, seoRanking,
     };
 
     console.log('Platform:', detectedPlatform, '| Techs:', technologies.join(', '));
