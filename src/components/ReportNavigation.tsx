@@ -3,7 +3,7 @@ import {
   BarChart3, Shield, Globe, Mail, Zap, Lock, FileWarning, 
   Share2, Link2, Scale, Image, Search, Eye, Smartphone, 
   TrendingUp, AlertTriangle, CheckCircle2, FileText, Activity,
-  FileSearch, Map, Users, Target, BarChart
+  FileSearch, Map, Users, Target, BarChart, Code, Sparkles, BadgeCheck
 } from 'lucide-react';
 import { ExtendedAuditData } from '@/types/audit';
 
