@@ -27,6 +27,10 @@ function getNavItems(ext?: ExtendedAuditData, hasCompetitors?: boolean, hasKeywo
   const items: ReportNavItem[] = [
     { id: 'summary', label: 'Summary', icon: BarChart3 },
     { id: 'seo', label: 'SEO', icon: Search },
+    { id: 'seoranking', label: 'SEO Ranking', icon: TrendingUp, status: getSeoRankingStatus(ext) },
+    { id: 'schema', label: 'Schema Markup', icon: Code, status: getSchemaStatus(ext) },
+    { id: 'aireadiness', label: 'AI Readiness', icon: Sparkles, status: getAiReadinessStatus(ext) },
+    { id: 'verification', label: 'Search Verification', icon: BadgeCheck, status: getVerificationStatus(ext) },
     { id: 'performance', label: 'Performance', icon: Zap },
     { id: 'contentquality', label: 'Content Quality', icon: FileText, status: getContentQualityStatus(ext) },
     { id: 'headers', label: 'Headers Security', icon: Shield, status: getHeadersStatus(ext) },
