@@ -672,7 +672,7 @@ Deno.serve(async (req) => {
     advancedSeo.hasSitemap = sitemapResponse.exists;
 
     // Parse robots.txt
-    const robotsTxtData: any = { exists: robotsResponse.exists, content: robotsResponse.content.substring(0, 3000), disallowedPaths: [], allowedPaths: [], sitemapReferences: [] };
+    const robotsTxtData: any = { exists: robotsResponse.exists, content: robotsResponse.content.substring(0, 3000), disallowedPaths: [], allowedPaths: [], sitemapReferences: [], disallowedAnalysis: [] };
     if (robotsResponse.exists) {
       const lines = robotsResponse.content.split('\n');
       for (const line of lines) {
@@ -681,7 +681,9 @@ Deno.serve(async (req) => {
         else if (trimmed.startsWith('allow:')) robotsTxtData.allowedPaths.push(line.split(':').slice(1).join(':').trim());
         else if (trimmed.startsWith('sitemap:')) robotsTxtData.sitemapReferences.push(line.split('sitemap:')[1]?.trim() || line.split('Sitemap:')[1]?.trim() || '');
       }
+      robotsTxtData.disallowedAnalysis = analyzeRobotsDisallows(robotsResponse.content);
     }
+
 
     // Parse sitemap
     const sitemapData: any = { exists: sitemapResponse.exists, url: `${domainOrigin}/sitemap.xml`, urlCount: 0, format: 'Unknown' };
