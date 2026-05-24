@@ -671,7 +671,11 @@ EXTENDED CHECKS RESULTS (incorporate into your analysis):
 - Robots.txt: ${advancedSeo.hasRobotsTxt ? 'Found' : 'Missing'}
 - Sitemap: ${advancedSeo.hasSitemap ? 'Found' : 'Missing'} (${sitemapData.urlCount} URLs)
 - Tracking Tools Detected: ${trackingTools.tools.filter((t: any) => t.status === 'detected').map((t: any) => t.name).join(', ') || 'None'}
-- Content Quality: ${contentQuality.wordCount} words, Readability: ${contentQuality.readabilityGrade} (${contentQuality.readabilityScore}/100), Content-to-Code Ratio: ${contentQuality.contentToCodeRatio}%`;
+- Content Quality: ${contentQuality.wordCount} words, Readability: ${contentQuality.readabilityGrade} (${contentQuality.readabilityScore}/100), Content-to-Code Ratio: ${contentQuality.contentToCodeRatio}%
+- Schema Markup: ${schemaValidation.totalSchemas} schemas, ${schemaValidation.errorCount} errors, ${schemaValidation.warningCount} warnings. Types: ${schemaValidation.schemas.map((s: any) => s.type).join(', ') || 'None'}
+- AI/LLM Readiness Score: ${aiReadiness.recommendationsScore}/100 (llms.txt=${aiReadiness.hasLlmsTxt}, Product=${aiReadiness.hasProductSchema}, FAQ=${aiReadiness.hasFaqSchema}, Org=${aiReadiness.hasOrganizationSchema})
+- Search Engine Verification: Google=${searchEngineVerification.google.verified}, Bing=${searchEngineVerification.bing.verified}, Yandex=${searchEngineVerification.yandex.verified}
+- SEO Ranking Signals: Authority=${seoRanking.estimatedAuthority}/100, Indexability=${seoRanking.indexability}`;
 
     const analysisPrompt = `You are a professional website auditor. Analyze the following website content and HTML to identify real issues.
 
