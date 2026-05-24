@@ -140,6 +140,41 @@ export interface SitemapData {
   format: string;
 }
 
+export interface SchemaValidationData {
+  hasStructuredData: boolean;
+  totalSchemas: number;
+  schemas: { type: string; status: 'valid' | 'warning' | 'error'; issues: string[] }[];
+  errorCount: number;
+  warningCount: number;
+}
+
+export interface AiReadinessData {
+  hasLlmsTxt: boolean;
+  llmsTxtUrl: string;
+  hasProductSchema: boolean;
+  hasFaqSchema: boolean;
+  hasOrganizationSchema: boolean;
+  hasArticleSchema: boolean;
+  aiCrawlersAllowed: { bot: string; allowed: boolean }[];
+  recommendationsScore: number;
+}
+
+export interface SearchEngineVerificationData {
+  google: { verified: boolean; token: string };
+  bing: { verified: boolean; token: string };
+  yandex: { verified: boolean; token: string };
+  pinterest: { verified: boolean; token: string };
+  facebook: { verified: boolean; token: string };
+}
+
+export interface SeoRankingData {
+  estimatedAuthority: number;
+  indexability: 'indexable' | 'noindex' | 'unknown';
+  hasCanonical: boolean;
+  rankingSignals: { signal: string; status: 'good' | 'warning' | 'missing'; impact: string }[];
+  trackedKeywords: { keyword: string; estimatedPosition: string; difficulty: 'Low' | 'Medium' | 'High' }[];
+}
+
 export interface ExtendedAuditData {
   headersSecurity?: HeadersSecurityData;
   dns?: DnsData;
@@ -154,6 +189,10 @@ export interface ExtendedAuditData {
   contentQuality?: ContentQualityData;
   robotsTxt?: RobotsTxtData;
   sitemap?: SitemapData;
+  schemaValidation?: SchemaValidationData;
+  aiReadiness?: AiReadinessData;
+  searchEngineVerification?: SearchEngineVerificationData;
+  seoRanking?: SeoRankingData;
 }
 
 export interface AuditCategory {

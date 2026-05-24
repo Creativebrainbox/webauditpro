@@ -352,6 +352,156 @@ function extractContentQuality(html: string, markdown: string): any {
   return { wordCount, readabilityScore: fleschScore, readabilityGrade: grade, paragraphCount: paragraphs.length, averageSentenceLength: avgSentenceLength, contentToCodeRatio };
 }
 
+function validateSchemas(html: string): any {
+  const schemas: { type: string; status: 'valid' | 'warning' | 'error'; issues: string[] }[] = [];
+  let errorCount = 0;
+  let warningCount = 0;
+  const ldMatches = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+  for (const m of ldMatches) {
+    const raw = m[1].trim();
+    try {
+      const parsed = JSON.parse(raw);
+      const items = Array.isArray(parsed) ? parsed : (parsed['@graph'] ? parsed['@graph'] : [parsed]);
+      for (const item of items) {
+        const type = item['@type'] || 'Unknown';
+        const issues: string[] = [];
+        if (!item['@context']) issues.push('Missing @context');
+        if (!item['@type']) issues.push('Missing @type');
+        const t = String(type).toLowerCase();
+        if (t === 'product') {
+          if (!item.name) issues.push('Product missing name');
+          if (!item.offers && !item.price) issues.push('Product missing offers/price');
+          if (!item.image) issues.push('Product missing image');
+        }
+        if (t === 'article' || t === 'blogposting' || t === 'newsarticle') {
+          if (!item.headline) issues.push('Article missing headline');
+          if (!item.author) issues.push('Article missing author');
+          if (!item.datePublished) issues.push('Article missing datePublished');
+        }
+        if (t === 'organization') {
+          if (!item.name) issues.push('Organization missing name');
+          if (!item.url) issues.push('Organization missing url');
+        }
+        if (t === 'faqpage') {
+          if (!item.mainEntity) issues.push('FAQPage missing mainEntity');
+        }
+        const status: 'valid' | 'warning' | 'error' = issues.length === 0 ? 'valid' : issues.length > 2 ? 'error' : 'warning';
+        if (status === 'error') errorCount++;
+        if (status === 'warning') warningCount++;
+        schemas.push({ type: String(type), status, issues });
+      }
+    } catch (e) {
+      errorCount++;
+      schemas.push({ type: 'Invalid JSON-LD', status: 'error', issues: ['JSON parse error: ' + (e as Error).message.substring(0, 80)] });
+    }
+  }
+  return {
+    hasStructuredData: schemas.length > 0,
+    totalSchemas: schemas.length,
+    schemas,
+    errorCount,
+    warningCount,
+  };
+}
+
+function extractSearchEngineVerification(html: string): any {
+  const get = (name: string) => {
+    const m = html.match(new RegExp(`<meta[^>]+name=["']${name}["'][^>]+content=["']([^"']*)["']`, 'i'))
+      || html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+name=["']${name}["']`, 'i'));
+    return m ? m[1].trim() : '';
+  };
+  const g = get('google-site-verification');
+  const b = get('msvalidate.01');
+  const y = get('yandex-verification');
+  const p = get('p:domain_verify');
+  const f = get('facebook-domain-verification');
+  return {
+    google: { verified: !!g, token: g },
+    bing: { verified: !!b, token: b },
+    yandex: { verified: !!y, token: y },
+    pinterest: { verified: !!p, token: p },
+    facebook: { verified: !!f, token: f },
+  };
+}
+
+function extractAiReadiness(html: string, robotsContent: string, hasLlmsTxt: boolean, llmsTxtUrl: string): any {
+  const schemaTypes: string[] = [];
+  const ldMatches = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+  for (const m of ldMatches) {
+    try {
+      const parsed = JSON.parse(m[1]);
+      const items = Array.isArray(parsed) ? parsed : (parsed['@graph'] ? parsed['@graph'] : [parsed]);
+      for (const item of items) if (item['@type']) schemaTypes.push(String(item['@type']).toLowerCase());
+    } catch {}
+  }
+  const hasProductSchema = schemaTypes.includes('product');
+  const hasFaqSchema = schemaTypes.includes('faqpage');
+  const hasOrganizationSchema = schemaTypes.includes('organization');
+  const hasArticleSchema = schemaTypes.some(t => ['article', 'blogposting', 'newsarticle'].includes(t));
+
+  const aiBots = ['GPTBot', 'ChatGPT-User', 'Google-Extended', 'PerplexityBot', 'ClaudeBot', 'anthropic-ai', 'CCBot', 'Applebot-Extended'];
+  const lines = robotsContent.split('\n').map(l => l.trim());
+  const aiCrawlersAllowed = aiBots.map(bot => {
+    let allowed = true;
+    let inBlock = false;
+    for (const line of lines) {
+      const low = line.toLowerCase();
+      if (low.startsWith('user-agent:')) {
+        inBlock = low.includes(bot.toLowerCase());
+      } else if (inBlock && low.startsWith('disallow:')) {
+        const path = line.split(':').slice(1).join(':').trim();
+        if (path === '/' || path === '*') allowed = false;
+      }
+    }
+    return { bot, allowed };
+  });
+
+  let score = 0;
+  if (hasLlmsTxt) score += 25;
+  if (hasProductSchema) score += 20;
+  if (hasFaqSchema) score += 15;
+  if (hasOrganizationSchema) score += 15;
+  if (hasArticleSchema) score += 10;
+  const allowedCount = aiCrawlersAllowed.filter(a => a.allowed).length;
+  score += Math.round((allowedCount / aiBots.length) * 15);
+
+  return {
+    hasLlmsTxt, llmsTxtUrl,
+    hasProductSchema, hasFaqSchema, hasOrganizationSchema, hasArticleSchema,
+    aiCrawlersAllowed,
+    recommendationsScore: Math.min(100, score),
+  };
+}
+
+function extractSeoRanking(html: string, advancedSeo: any, links: string[], scores: any): any {
+  const noindexMatch = html.match(/<meta[^>]+name=["']robots["'][^>]+content=["']([^"']*)["']/i);
+  const robotsContent = noindexMatch ? noindexMatch[1].toLowerCase() : '';
+  const indexability: 'indexable' | 'noindex' | 'unknown' = robotsContent.includes('noindex') ? 'noindex' : robotsContent ? 'indexable' : 'indexable';
+
+  const signals: { signal: string; status: 'good' | 'warning' | 'missing'; impact: string }[] = [
+    { signal: 'HTTPS Secure', status: 'good', impact: 'Ranking factor' },
+    { signal: 'Canonical Tag', status: advancedSeo.hasCanonical ? 'good' : 'missing', impact: 'Prevents duplicate content penalty' },
+    { signal: 'Structured Data', status: advancedSeo.hasStructuredData ? 'good' : 'missing', impact: 'Rich snippets in SERP' },
+    { signal: 'Meta Title', status: advancedSeo.metaTitle.status === 'good' ? 'good' : advancedSeo.metaTitle.status === 'missing' ? 'missing' : 'warning', impact: 'Primary SERP signal' },
+    { signal: 'Meta Description', status: advancedSeo.metaDescription.status === 'good' ? 'good' : advancedSeo.metaDescription.status === 'missing' ? 'missing' : 'warning', impact: 'CTR from SERP' },
+    { signal: 'H1 Heading', status: advancedSeo.headingStructure.some((h: any) => h.tag === 'H1') ? 'good' : 'missing', impact: 'On-page topic signal' },
+    { signal: 'Internal Linking', status: advancedSeo.internalLinks >= 10 ? 'good' : advancedSeo.internalLinks >= 3 ? 'warning' : 'missing', impact: 'Crawl depth & authority flow' },
+    { signal: 'Image Alt Text', status: advancedSeo.imagesWithoutAlt === 0 ? 'good' : advancedSeo.imagesWithoutAlt < 5 ? 'warning' : 'missing', impact: 'Image search visibility' },
+    { signal: 'Indexability', status: indexability === 'indexable' ? 'good' : 'missing', impact: 'Required for ranking' },
+  ];
+
+  const goodCount = signals.filter(s => s.status === 'good').length;
+  const estimatedAuthority = Math.round((goodCount / signals.length) * 100);
+
+  const trackedKeywords = (advancedSeo.keywordCloud || []).slice(0, 5).map((k: any) => ({
+    keyword: k.word,
+    estimatedPosition: estimatedAuthority > 70 ? 'Page 1-2' : estimatedAuthority > 40 ? 'Page 3-5' : 'Page 6+',
+    difficulty: (k.count > 15 ? 'High' : k.count > 5 ? 'Medium' : 'Low') as 'Low' | 'Medium' | 'High',
+  }));
+
+  return { estimatedAuthority, indexability, hasCanonical: advancedSeo.hasCanonical, rankingSignals: signals, trackedKeywords };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -403,7 +553,7 @@ Deno.serve(async (req) => {
     try { domainOrigin = new URL(formattedUrl).origin; } catch {}
 
     // Run all extended checks in parallel
-    const [advancedSeo, headersSecurity, sslData, brokenLinksData, robotsResponse, sitemapResponse] = await Promise.all([
+    const [advancedSeo, headersSecurity, sslData, brokenLinksData, robotsResponse, sitemapResponse, llmsTxtResponse] = await Promise.all([
       Promise.resolve(extractAdvancedSeo(htmlContent, websiteContent, links, formattedUrl)),
       checkHeadersSecurity(formattedUrl),
       checkSsl(formattedUrl),
@@ -418,6 +568,8 @@ Deno.serve(async (req) => {
         const txt = await r.text();
         return { exists: true, content: txt };
       }).catch(() => ({ exists: false, content: '' })),
+      fetch(`${domainOrigin}/llms.txt`, { signal: AbortSignal.timeout(5000) }).then(r => ({ exists: r.ok }))
+        .catch(() => ({ exists: false })),
     ]);
 
     advancedSeo.hasRobotsTxt = robotsResponse.exists;
@@ -472,10 +624,22 @@ Deno.serve(async (req) => {
     // Safe browsing (basic check via HTTPS status)
     const safeBrowsing = { isSafe: true, threats: [] };
 
+    // New audit checks
+    const schemaValidation = validateSchemas(htmlContent);
+    const searchEngineVerification = extractSearchEngineVerification(htmlContent);
+    const aiReadiness = extractAiReadiness(
+      htmlContent,
+      robotsResponse.content,
+      llmsTxtResponse.exists,
+      `${domainOrigin}/llms.txt`
+    );
+    const seoRanking = extractSeoRanking(htmlContent, advancedSeo, links, {});
+
     const extendedAudit = {
       headersSecurity, dns, emailSecurity, ssl: sslData,
       safeBrowsing, favicon, legalCompliance, openGraph, brokenLinks: brokenLinksData,
       trackingTools, contentQuality, robotsTxt: robotsTxtData, sitemap: sitemapData,
+      schemaValidation, aiReadiness, searchEngineVerification, seoRanking,
     };
 
     console.log('Platform:', detectedPlatform, '| Techs:', technologies.join(', '));
@@ -507,7 +671,11 @@ EXTENDED CHECKS RESULTS (incorporate into your analysis):
 - Robots.txt: ${advancedSeo.hasRobotsTxt ? 'Found' : 'Missing'}
 - Sitemap: ${advancedSeo.hasSitemap ? 'Found' : 'Missing'} (${sitemapData.urlCount} URLs)
 - Tracking Tools Detected: ${trackingTools.tools.filter((t: any) => t.status === 'detected').map((t: any) => t.name).join(', ') || 'None'}
-- Content Quality: ${contentQuality.wordCount} words, Readability: ${contentQuality.readabilityGrade} (${contentQuality.readabilityScore}/100), Content-to-Code Ratio: ${contentQuality.contentToCodeRatio}%`;
+- Content Quality: ${contentQuality.wordCount} words, Readability: ${contentQuality.readabilityGrade} (${contentQuality.readabilityScore}/100), Content-to-Code Ratio: ${contentQuality.contentToCodeRatio}%
+- Schema Markup: ${schemaValidation.totalSchemas} schemas, ${schemaValidation.errorCount} errors, ${schemaValidation.warningCount} warnings. Types: ${schemaValidation.schemas.map((s: any) => s.type).join(', ') || 'None'}
+- AI/LLM Readiness Score: ${aiReadiness.recommendationsScore}/100 (llms.txt=${aiReadiness.hasLlmsTxt}, Product=${aiReadiness.hasProductSchema}, FAQ=${aiReadiness.hasFaqSchema}, Org=${aiReadiness.hasOrganizationSchema})
+- Search Engine Verification: Google=${searchEngineVerification.google.verified}, Bing=${searchEngineVerification.bing.verified}, Yandex=${searchEngineVerification.yandex.verified}
+- SEO Ranking Signals: Authority=${seoRanking.estimatedAuthority}/100, Indexability=${seoRanking.indexability}`;
 
     const analysisPrompt = `You are a professional website auditor. Analyze the following website content and HTML to identify real issues.
 

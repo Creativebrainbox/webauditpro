@@ -3,7 +3,7 @@ import {
   BarChart3, Shield, Globe, Mail, Zap, Lock, FileWarning, 
   Share2, Link2, Scale, Image, Search, Eye, Smartphone, 
   TrendingUp, AlertTriangle, CheckCircle2, FileText, Activity,
-  FileSearch, Map, Users, Target, BarChart
+  FileSearch, Map, Users, Target, BarChart, Code, Sparkles, BadgeCheck
 } from 'lucide-react';
 import { ExtendedAuditData } from '@/types/audit';
 
@@ -27,6 +27,10 @@ function getNavItems(ext?: ExtendedAuditData, hasCompetitors?: boolean, hasKeywo
   const items: ReportNavItem[] = [
     { id: 'summary', label: 'Summary', icon: BarChart3 },
     { id: 'seo', label: 'SEO', icon: Search },
+    { id: 'seoranking', label: 'SEO Ranking', icon: TrendingUp, status: getSeoRankingStatus(ext) },
+    { id: 'schema', label: 'Schema Markup', icon: Code, status: getSchemaStatus(ext) },
+    { id: 'aireadiness', label: 'AI Readiness', icon: Sparkles, status: getAiReadinessStatus(ext) },
+    { id: 'verification', label: 'Search Verification', icon: BadgeCheck, status: getVerificationStatus(ext) },
     { id: 'performance', label: 'Performance', icon: Zap },
     { id: 'contentquality', label: 'Content Quality', icon: FileText, status: getContentQualityStatus(ext) },
     { id: 'headers', label: 'Headers Security', icon: Shield, status: getHeadersStatus(ext) },
@@ -137,6 +141,38 @@ function getBrokenLinksStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'er
   if (!ext?.brokenLinks) return 'warning';
   if (ext.brokenLinks.brokenCount === 0) return 'good';
   if (ext.brokenLinks.brokenCount <= 3) return 'warning';
+  return 'error';
+}
+
+function getSchemaStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.schemaValidation) return 'warning';
+  const s = ext.schemaValidation;
+  if (!s.hasStructuredData) return 'error';
+  if (s.errorCount > 0) return 'error';
+  if (s.warningCount > 0) return 'warning';
+  return 'good';
+}
+
+function getAiReadinessStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.aiReadiness) return 'warning';
+  if (ext.aiReadiness.recommendationsScore >= 70) return 'good';
+  if (ext.aiReadiness.recommendationsScore >= 40) return 'warning';
+  return 'error';
+}
+
+function getVerificationStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.searchEngineVerification) return 'warning';
+  const v = ext.searchEngineVerification;
+  const count = [v.google.verified, v.bing.verified, v.yandex.verified].filter(Boolean).length;
+  if (v.google.verified) return 'good';
+  if (count > 0) return 'warning';
+  return 'error';
+}
+
+function getSeoRankingStatus(ext?: ExtendedAuditData): 'good' | 'warning' | 'error' {
+  if (!ext?.seoRanking) return 'warning';
+  if (ext.seoRanking.estimatedAuthority >= 70) return 'good';
+  if (ext.seoRanking.estimatedAuthority >= 40) return 'warning';
   return 'error';
 }
 
