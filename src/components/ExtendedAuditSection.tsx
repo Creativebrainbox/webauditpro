@@ -258,7 +258,7 @@ export const ExtendedAuditSection = ({ data, activeSection }: ExtendedAuditSecti
   if (activeSection === 'brokenlinks' && data.brokenLinks) {
     const bl = data.brokenLinks;
     return (
-      <SectionWrapper title="Broken Links" icon={Link2}>
+      <SectionWrapper title="Broken Links (404 & errors)" icon={Link2}>
         <div className={cn(
           'p-4 rounded-lg border mb-4',
           bl.brokenCount === 0 ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'
@@ -269,25 +269,51 @@ export const ExtendedAuditSection = ({ data, activeSection }: ExtendedAuditSecti
               <p className="font-semibold">
                 {bl.brokenCount === 0 ? 'No broken links found' : `${bl.brokenCount} broken link${bl.brokenCount !== 1 ? 's' : ''} found`}
               </p>
-              <p className="text-sm text-muted-foreground">Checked {bl.totalChecked} links</p>
+              <p className="text-sm text-muted-foreground">Checked {bl.totalChecked} outbound/internal links from this page</p>
             </div>
           </div>
         </div>
         {bl.brokenLinks.length > 0 && (
-          <div className="space-y-2">
-            {bl.brokenLinks.map((link, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
-                <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">
-                  {link.statusCode || 'ERR'}
-                </span>
-                <span className="text-sm truncate">{link.url}</span>
-              </div>
-            ))}
+          <div className="space-y-3">
+            {bl.brokenLinks.map((link, i) => {
+              const sev = link.severity || (link.statusCode >= 500 || link.statusCode === 404 || link.statusCode === 0 ? 'critical' : 'warning');
+              return (
+                <div key={i} className={cn(
+                  'p-4 rounded-lg border',
+                  sev === 'critical' ? 'bg-destructive/5 border-destructive/30' :
+                  sev === 'warning' ? 'bg-warning/5 border-warning/30' :
+                  'bg-muted/30 border-border/50'
+                )}>
+                  <div className="flex items-start gap-3">
+                    <span className={cn(
+                      'text-xs font-mono px-2 py-1 rounded shrink-0',
+                      sev === 'critical' ? 'bg-destructive/20 text-destructive' :
+                      sev === 'warning' ? 'bg-warning/20 text-warning' :
+                      'bg-muted text-muted-foreground'
+                    )}>
+                      {link.statusCode || 'ERR'}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline break-all">
+                        {link.url}
+                      </a>
+                      {link.recommendation && (
+                        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                          <span className="font-semibold text-foreground">Recommended fix: </span>
+                          {link.recommendation}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </SectionWrapper>
     );
   }
+
 
   // Tracking Tools
   if (activeSection === 'tracking' && data.trackingTools) {
