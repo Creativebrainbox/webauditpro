@@ -438,5 +438,197 @@ export const ExtendedAuditSection = ({ data, activeSection }: ExtendedAuditSecti
     );
   }
 
+  // Schema Markup Validation
+  if (activeSection === 'schema' && data.schemaValidation) {
+    const s = data.schemaValidation;
+    return (
+      <SectionWrapper title="Schema Markup Validation" icon={Code}>
+        {!s.hasStructuredData ? (
+          <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-3">
+            <XCircle className="w-5 h-5 text-destructive" />
+            <div>
+              <p className="font-semibold">No structured data found</p>
+              <p className="text-sm text-muted-foreground">Add JSON-LD schema to enable rich SERP results.</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="p-3 rounded-lg bg-muted/30 border border-border/50 text-center">
+                <p className="text-2xl font-bold">{s.totalSchemas}</p>
+                <p className="text-xs text-muted-foreground">Total Schemas</p>
+              </div>
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-center">
+                <p className="text-2xl font-bold text-destructive">{s.errorCount}</p>
+                <p className="text-xs text-muted-foreground">Errors</p>
+              </div>
+              <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-center">
+                <p className="text-2xl font-bold text-warning">{s.warningCount}</p>
+                <p className="text-xs text-muted-foreground">Warnings</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {s.schemas.map((sc, i) => (
+                <div key={i} className={cn(
+                  'p-3 rounded-lg border',
+                  sc.status === 'valid' ? 'bg-success/5 border-success/20' :
+                  sc.status === 'warning' ? 'bg-warning/5 border-warning/20' :
+                  'bg-destructive/5 border-destructive/20'
+                )}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {sc.status === 'valid' ? <CheckCircle2 className="w-4 h-4 text-success" /> :
+                     sc.status === 'warning' ? <AlertTriangle className="w-4 h-4 text-warning" /> :
+                     <XCircle className="w-4 h-4 text-destructive" />}
+                    <span className="text-sm font-semibold">{sc.type}</span>
+                  </div>
+                  {sc.issues.length > 0 && (
+                    <ul className="ml-6 mt-1 text-xs text-muted-foreground list-disc list-inside">
+                      {sc.issues.map((iss, j) => <li key={j}>{iss}</li>)}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </SectionWrapper>
+    );
+  }
+
+  // AI Readiness (shopping & recommendations)
+  if (activeSection === 'aireadiness' && data.aiReadiness) {
+    const ai = data.aiReadiness;
+    return (
+      <SectionWrapper title="AI Shopping & Recommendations Readiness" icon={Sparkles}>
+        <div className="p-4 rounded-lg bg-gradient-to-br from-primary/10 to-info/10 border border-primary/20 mb-4">
+          <p className="text-sm text-muted-foreground">AI Readiness Score</p>
+          <p className="text-4xl font-bold text-primary">{ai.recommendationsScore}<span className="text-lg text-muted-foreground">/100</span></p>
+          <p className="text-xs text-muted-foreground mt-1">How discoverable your site is to ChatGPT, Perplexity, Google AI Overview, and shopping assistants</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <StatusBadge ok={ai.hasLlmsTxt} label="llms.txt file" />
+          <StatusBadge ok={ai.hasProductSchema} label="Product Schema" />
+          <StatusBadge ok={ai.hasFaqSchema} label="FAQ Schema" />
+          <StatusBadge ok={ai.hasOrganizationSchema} label="Organization Schema" />
+          <StatusBadge ok={ai.hasArticleSchema} label="Article Schema" />
+        </div>
+        <div>
+          <h4 className="text-sm font-semibold mb-2 text-muted-foreground">AI Crawler Access (robots.txt)</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {ai.aiCrawlersAllowed.map((c, i) => (
+              <div key={i} className={cn(
+                'flex items-center gap-2 p-2 rounded-lg border text-xs',
+                c.allowed ? 'bg-success/5 border-success/20' : 'bg-destructive/5 border-destructive/20'
+              )}>
+                {c.allowed ? <CheckCircle2 className="w-3 h-3 text-success" /> : <XCircle className="w-3 h-3 text-destructive" />}
+                <span className="font-mono truncate">{c.bot}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </SectionWrapper>
+    );
+  }
+
+  // Search Engine Verification
+  if (activeSection === 'verification' && data.searchEngineVerification) {
+    const v = data.searchEngineVerification;
+    const engines = [
+      { name: 'Google Search Console', data: v.google },
+      { name: 'Bing Webmaster Tools', data: v.bing },
+      { name: 'Yandex Webmaster', data: v.yandex },
+      { name: 'Pinterest', data: v.pinterest },
+      { name: 'Facebook Domain', data: v.facebook },
+    ];
+    return (
+      <SectionWrapper title="Search Engine Ownership Verification" icon={BadgeCheck}>
+        <p className="text-sm text-muted-foreground mb-4">
+          Detected verification meta tags. These confirm site ownership to search engines.
+        </p>
+        <div className="space-y-2">
+          {engines.map((e, i) => (
+            <div key={i} className={cn(
+              'flex items-center justify-between p-3 rounded-lg border',
+              e.data.verified ? 'bg-success/5 border-success/20' : 'bg-muted/20 border-border/40'
+            )}>
+              <div className="flex items-center gap-2 min-w-0">
+                {e.data.verified ? <CheckCircle2 className="w-4 h-4 text-success shrink-0" /> : <XCircle className="w-4 h-4 text-muted-foreground shrink-0" />}
+                <span className="text-sm font-medium truncate">{e.name}</span>
+              </div>
+              {e.data.verified && (
+                <span className="text-xs font-mono text-muted-foreground truncate ml-3 max-w-[40%]">{e.data.token.substring(0, 16)}…</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </SectionWrapper>
+    );
+  }
+
+  // SEO Ranking
+  if (activeSection === 'seoranking' && data.seoRanking) {
+    const r = data.seoRanking;
+    return (
+      <SectionWrapper title="SEO Ranking Signals" icon={TrendingUp}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <div className="p-4 rounded-lg bg-gradient-to-br from-primary/10 to-info/10 border border-primary/20">
+            <p className="text-xs text-muted-foreground">Estimated Authority</p>
+            <p className="text-3xl font-bold text-primary">{r.estimatedAuthority}<span className="text-sm text-muted-foreground">/100</span></p>
+          </div>
+          <div className={cn('p-4 rounded-lg border',
+            r.indexability === 'indexable' ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20')}>
+            <p className="text-xs text-muted-foreground">Indexability</p>
+            <p className="text-lg font-bold capitalize">{r.indexability}</p>
+          </div>
+          <div className={cn('p-4 rounded-lg border',
+            r.hasCanonical ? 'bg-success/10 border-success/20' : 'bg-warning/10 border-warning/20')}>
+            <p className="text-xs text-muted-foreground">Canonical Tag</p>
+            <p className="text-lg font-bold">{r.hasCanonical ? 'Present' : 'Missing'}</p>
+          </div>
+        </div>
+        <div className="mb-4">
+          <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Ranking Signals</h4>
+          <div className="space-y-2">
+            {r.rankingSignals.map((s, i) => (
+              <div key={i} className={cn(
+                'flex items-center justify-between p-3 rounded-lg border',
+                s.status === 'good' ? 'bg-success/5 border-success/20' :
+                s.status === 'warning' ? 'bg-warning/5 border-warning/20' :
+                'bg-destructive/5 border-destructive/20'
+              )}>
+                <div className="flex items-center gap-2">
+                  {s.status === 'good' ? <CheckCircle2 className="w-4 h-4 text-success" /> :
+                   s.status === 'warning' ? <AlertTriangle className="w-4 h-4 text-warning" /> :
+                   <XCircle className="w-4 h-4 text-destructive" />}
+                  <span className="text-sm font-medium">{s.signal}</span>
+                </div>
+                <span className="text-xs text-muted-foreground">{s.impact}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {r.trackedKeywords.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold mb-2 text-muted-foreground">Estimated Keyword Positions</h4>
+            <div className="space-y-1">
+              {r.trackedKeywords.map((k, i) => (
+                <div key={i} className="flex items-center justify-between p-2 rounded bg-muted/30 border border-border/40">
+                  <span className="text-sm font-medium">{k.keyword}</span>
+                  <div className="flex gap-2 items-center">
+                    <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">{k.estimatedPosition}</span>
+                    <span className={cn('text-xs px-2 py-0.5 rounded',
+                      k.difficulty === 'Low' ? 'bg-success/10 text-success' :
+                      k.difficulty === 'Medium' ? 'bg-warning/10 text-warning' :
+                      'bg-destructive/10 text-destructive')}>{k.difficulty}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </SectionWrapper>
+    );
+  }
+
   return null;
 };
