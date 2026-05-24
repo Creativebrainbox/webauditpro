@@ -675,6 +675,49 @@ export const ExtendedAuditSection = ({ data, activeSection, domain }: ExtendedAu
           <StatusBadge ok={ai.hasOrganizationSchema} label="Organization Schema" />
           <StatusBadge ok={ai.hasArticleSchema} label="Article Schema" />
         </div>
+        {/* AI Shopping signals — is your product likely to be recommended by AI? */}
+        {ai.aiShoppingSignals && ai.aiShoppingSignals.length > 0 && (
+          <div className="mb-4 p-4 rounded-lg border border-primary/20 bg-gradient-to-br from-primary/5 to-warning/5">
+            <div className="flex items-center gap-2 mb-3">
+              <ShoppingBag className="w-4 h-4 text-primary" />
+              <h4 className="text-sm font-semibold">AI Shopping Recommendation Readiness</h4>
+              {typeof ai.aiShoppingScore === 'number' && (
+                <span className={cn(
+                  'ml-auto text-xs font-bold px-2 py-0.5 rounded',
+                  ai.aiShoppingScore >= 70 ? 'bg-success/20 text-success' :
+                  ai.aiShoppingScore >= 40 ? 'bg-warning/20 text-warning' :
+                  'bg-destructive/20 text-destructive'
+                )}>
+                  {ai.aiShoppingScore}/100
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Signals AI shopping assistants (ChatGPT Shopping, Perplexity, Google AI Overview, Amazon Rufus) use to surface and recommend your products.
+              {typeof ai.productCount === 'number' && ai.productCount > 0 && (
+                <> Detected <span className="font-semibold text-foreground">{ai.productCount}</span> product schema item{ai.productCount !== 1 ? 's' : ''} on this page.</>
+              )}
+            </p>
+            <div className="space-y-1.5">
+              {ai.aiShoppingSignals.map((s, i) => (
+                <div key={i} className={cn(
+                  'flex items-start gap-2 p-2 rounded text-xs',
+                  s.present ? 'bg-success/5' : 'bg-destructive/5'
+                )}>
+                  {s.present ? <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" /> :
+                   <XCircle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />}
+                  <div className="min-w-0 flex-1">
+                    <span className="font-medium">{s.signal}</span>
+                    <span className="text-muted-foreground"> — {s.impact}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {ai.hasMerchantListing && (
+              <p className="mt-3 text-xs text-success font-medium">✓ Product meets minimum merchant-listing criteria (price + availability + identifier).</p>
+            )}
+          </div>
+        )}
         <div>
           <h4 className="text-sm font-semibold mb-2 text-muted-foreground">AI Crawler Access (robots.txt)</h4>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -689,6 +732,7 @@ export const ExtendedAuditSection = ({ data, activeSection, domain }: ExtendedAu
             ))}
           </div>
         </div>
+
       </SectionWrapper>
     );
   }
