@@ -833,6 +833,7 @@ export const ExtendedAuditSection = ({ data, activeSection, domain }: ExtendedAu
             </div>
           </div>
         )}
+        <LiveRankTracker domain={domain} />
       </SectionWrapper>
     );
   }
