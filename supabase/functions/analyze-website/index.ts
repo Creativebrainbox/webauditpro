@@ -553,7 +553,7 @@ Deno.serve(async (req) => {
     try { domainOrigin = new URL(formattedUrl).origin; } catch {}
 
     // Run all extended checks in parallel
-    const [advancedSeo, headersSecurity, sslData, brokenLinksData, robotsResponse, sitemapResponse] = await Promise.all([
+    const [advancedSeo, headersSecurity, sslData, brokenLinksData, robotsResponse, sitemapResponse, llmsTxtResponse] = await Promise.all([
       Promise.resolve(extractAdvancedSeo(htmlContent, websiteContent, links, formattedUrl)),
       checkHeadersSecurity(formattedUrl),
       checkSsl(formattedUrl),
@@ -568,6 +568,8 @@ Deno.serve(async (req) => {
         const txt = await r.text();
         return { exists: true, content: txt };
       }).catch(() => ({ exists: false, content: '' })),
+      fetch(`${domainOrigin}/llms.txt`, { signal: AbortSignal.timeout(5000) }).then(r => ({ exists: r.ok }))
+        .catch(() => ({ exists: false })),
     ]);
 
     advancedSeo.hasRobotsTxt = robotsResponse.exists;
