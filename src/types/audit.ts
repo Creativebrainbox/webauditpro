@@ -106,10 +106,17 @@ export interface OpenGraphData {
   tags: { property: string; content: string; status: 'good' | 'missing' }[];
 }
 
+export interface BrokenLinkItem {
+  url: string;
+  statusCode: number;
+  location: string;
+  recommendation: string;
+  severity: 'critical' | 'warning' | 'info';
+}
 export interface BrokenLinksData {
   totalChecked: number;
   brokenCount: number;
-  brokenLinks: { url: string; statusCode: number; location: string }[];
+  brokenLinks: BrokenLinkItem[];
 }
 
 export interface TrackingToolsData {
@@ -125,12 +132,19 @@ export interface ContentQualityData {
   contentToCodeRatio: number;
 }
 
+export interface RobotsDisallowAnalysis {
+  path: string;
+  userAgent: string;
+  impact: string;
+  severity: 'good' | 'warning' | 'error';
+}
 export interface RobotsTxtData {
   exists: boolean;
   content: string;
   disallowedPaths: string[];
   allowedPaths: string[];
   sitemapReferences: string[];
+  disallowedAnalysis?: RobotsDisallowAnalysis[];
 }
 
 export interface SitemapData {
@@ -157,6 +171,11 @@ export interface AiReadinessData {
   hasArticleSchema: boolean;
   aiCrawlersAllowed: { bot: string; allowed: boolean }[];
   recommendationsScore: number;
+  // AI shopping & recommendation readiness
+  productCount?: number;
+  hasMerchantListing?: boolean;
+  aiShoppingSignals?: { signal: string; present: boolean; impact: string }[];
+  aiShoppingScore?: number;
 }
 
 export interface SearchEngineVerificationData {
@@ -167,12 +186,23 @@ export interface SearchEngineVerificationData {
   facebook: { verified: boolean; token: string };
 }
 
+export interface LiveKeywordRank {
+  keyword: string;
+  position: number | null; // null = not in top 100
+  url: string;
+  searchVolume: number;
+  difficulty: number;
+  cpc?: number;
+}
 export interface SeoRankingData {
   estimatedAuthority: number;
   indexability: 'indexable' | 'noindex' | 'unknown';
   hasCanonical: boolean;
   rankingSignals: { signal: string; status: 'good' | 'warning' | 'missing'; impact: string }[];
   trackedKeywords: { keyword: string; estimatedPosition: string; difficulty: 'Low' | 'Medium' | 'High' }[];
+  liveKeywords?: LiveKeywordRank[];
+  liveSerpProvider?: string;
+  liveSerpError?: string;
 }
 
 export interface ExtendedAuditData {
