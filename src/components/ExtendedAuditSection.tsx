@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { 
   Shield, CheckCircle2, XCircle, AlertTriangle, Globe, Mail, 
   Lock, FileWarning, Share2, Link2, Scale, Image as ImageIcon,
-  Activity, FileSearch, Map, FileText
+  Activity, FileSearch, Map, FileText, Code, Sparkles, BadgeCheck, TrendingUp
 } from 'lucide-react';
 
 interface ExtendedAuditSectionProps {
