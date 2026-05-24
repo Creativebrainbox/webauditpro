@@ -23,6 +23,8 @@ const steps = [
   { icon: Scale, label: 'Checking legal compliance...', duration: 300 },
   { icon: Link2, label: 'Detecting broken links...', duration: 400 },
   { icon: FileText, label: 'Verifying robots.txt & sitemap...', duration: 300 },
+  { icon: Zap, label: 'Checking AI shopping readiness (llms.txt)...', duration: 300 },
+  { icon: TrendingUp, label: 'Evaluating SEO ranking signals...', duration: 400 },
   { icon: Smartphone, label: 'Testing mobile responsiveness...', duration: 350 },
   { icon: Eye, label: 'Evaluating accessibility...', duration: 350 },
   { icon: TrendingUp, label: 'Calculating revenue impact...', duration: 400 },
