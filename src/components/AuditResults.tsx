@@ -211,7 +211,7 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
 
         {/* Extended Audit Sections */}
         {isExtendedSection && result.extendedAudit && (
-          <ExtendedAuditSection data={result.extendedAudit} activeSection={activeSection} />
+          <ExtendedAuditSection data={result.extendedAudit} activeSection={activeSection} domain={result.domain} />
         )}
 
         {/* Competitors Section */}
