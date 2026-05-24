@@ -40,7 +40,105 @@ const SectionWrapper = ({ title, icon: Icon, children }: { title: string; icon: 
   </div>
 );
 
-export const ExtendedAuditSection = ({ data, activeSection }: ExtendedAuditSectionProps) => {
+type LiveRankResult = { keyword: string; position: number | null; url: string; searchVolume: number; difficulty: number; cpc?: number; error?: string };
+
+const LiveRankTracker = ({ domain }: { domain?: string }) => {
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<LiveRankResult[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notConnected, setNotConnected] = useState(false);
+
+  const run = async () => {
+    setError(null); setNotConnected(false); setResults(null);
+    const kws = input.split(/[\n,]/).map(k => k.trim()).filter(Boolean).slice(0, 10);
+    if (kws.length === 0) { setError('Enter at least one keyword (comma or newline separated).'); return; }
+    if (!domain) { setError('Domain unknown — cannot run live ranking.'); return; }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('serp-rank', { body: { domain, keywords: kws } });
+      if (error) throw error;
+      if (!data?.success) {
+        if (data?.notConnected) { setNotConnected(true); return; }
+        setError(data?.error || 'Failed to fetch SERP data.');
+        return;
+      }
+      setResults(data.results);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="mt-4 p-4 rounded-lg border border-primary/30 bg-primary/5">
+      <div className="flex items-center gap-2 mb-2">
+        <Search className="w-4 h-4 text-primary" />
+        <h4 className="text-sm font-semibold">Live SERP Rank Check</h4>
+        <span className="ml-auto text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary">powered by Semrush</span>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        Enter up to 10 target keywords (comma or newline separated). We'll fetch the top 100 Google results for each and show where <span className="font-mono">{domain || 'your domain'}</span> currently ranks.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="seo audit tool, website analyzer, ..."
+          className="flex-1"
+        />
+        <Button onClick={run} disabled={loading || !input.trim()}>
+          {loading ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Checking…</> : 'Check ranks'}
+        </Button>
+      </div>
+      {error && <p className="text-xs text-destructive mt-2">{error}</p>}
+      {notConnected && (
+        <div className="mt-3 p-3 rounded-lg bg-warning/10 border border-warning/20 text-sm">
+          <p className="font-semibold text-warning mb-1">Semrush not connected</p>
+          <p className="text-xs text-muted-foreground">Open Connectors and link Semrush to enable live SERP ranking. Your existing Semrush subscription limits apply.</p>
+        </div>
+      )}
+      {results && results.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {results.map((r, i) => (
+            <div key={i} className={cn(
+              'p-3 rounded-lg border',
+              r.position && r.position <= 10 ? 'bg-success/5 border-success/30' :
+              r.position && r.position <= 30 ? 'bg-warning/5 border-warning/30' :
+              'bg-muted/30 border-border/50'
+            )}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={cn(
+                    'text-xs font-mono font-bold px-2 py-1 rounded shrink-0',
+                    r.position && r.position <= 10 ? 'bg-success/20 text-success' :
+                    r.position && r.position <= 30 ? 'bg-warning/20 text-warning' :
+                    'bg-muted text-muted-foreground'
+                  )}>
+                    {r.position ? `#${r.position}` : 'Not in top 100'}
+                  </span>
+                  <span className="text-sm font-medium truncate">{r.keyword}</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span>Vol: <span className="text-foreground font-medium">{r.searchVolume.toLocaleString()}</span></span>
+                  <span>KD: <span className="text-foreground font-medium">{r.difficulty}</span></span>
+                  {r.cpc ? <span>CPC: <span className="text-foreground font-medium">${r.cpc.toFixed(2)}</span></span> : null}
+                </div>
+              </div>
+              {r.url && (
+                <a href={r.url} target="_blank" rel="noopener noreferrer" className="mt-2 text-xs text-primary hover:underline flex items-center gap-1 break-all">
+                  <ExternalLink className="w-3 h-3 shrink-0" /> {r.url}
+                </a>
+              )}
+              {r.error && <p className="text-xs text-destructive mt-1">{r.error}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const ExtendedAuditSection = ({ data, activeSection, domain }: ExtendedAuditSectionProps) => {
   if (activeSection === 'headers' && data.headersSecurity) {
     const hs = data.headersSecurity;
     const passed = hs.headers.filter(h => h.status === 'good').length;
