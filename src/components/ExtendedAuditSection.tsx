@@ -1,15 +1,22 @@
 import { ExtendedAuditData } from '@/types/audit';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   Shield, CheckCircle2, XCircle, AlertTriangle, Globe, Mail, 
   Lock, FileWarning, Share2, Link2, Scale, Image as ImageIcon,
-  Activity, FileSearch, Map, FileText, Code, Sparkles, BadgeCheck, TrendingUp
+  Activity, FileSearch, Map, FileText, Code, Sparkles, BadgeCheck, TrendingUp,
+  Search, Loader2, ShoppingBag, ExternalLink
 } from 'lucide-react';
 
 interface ExtendedAuditSectionProps {
   data: ExtendedAuditData;
   activeSection: string;
+  domain?: string;
 }
+
 
 const StatusBadge = ({ ok, label }: { ok: boolean; label: string }) => (
   <div className={cn(
