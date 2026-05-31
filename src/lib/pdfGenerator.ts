@@ -612,7 +612,227 @@ export async function generateAuditPDF(result: AuditResult): Promise<void> {
     y = (doc as any).lastAutoTable.finalY + 10;
   }
 
+  // =================== TECHNICAL AUDIT DETAIL ===================
+  const ext = result.extendedAudit;
+  if (ext) {
+    doc.addPage();
+    y = 25;
+    doc.setTextColor(...COLORS.primary);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Technical Audit Detail', margin, y);
+    y += 4;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(...COLORS.muted);
+    doc.text('Deep-dive findings across crawl, schema, AI readiness and ranking signals.', margin, y + 6);
+    y += 14;
+
+    const sectionHeader = (title: string) => {
+      checkPageBreak(18);
+      doc.setFillColor(...COLORS.light);
+      doc.rect(margin, y, contentWidth, 8, 'F');
+      doc.setFillColor(...COLORS.accent);
+      doc.rect(margin, y, 2.5, 8, 'F');
+      doc.setTextColor(...COLORS.dark);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title, margin + 6, y + 5.5);
+      y += 12;
+    };
+
+    // ---- Broken Links ----
+    if (ext.brokenLinks) {
+      sectionHeader(`Broken Links (${ext.brokenLinks.brokenCount} of ${ext.brokenLinks.totalChecked} checked)`);
+      if (ext.brokenLinks.brokenLinks.length === 0) {
+        doc.setTextColor(...COLORS.text);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('No broken links detected — link integrity is healthy.', margin, y);
+        y += 8;
+      } else {
+        autoTable(doc, {
+          startY: y,
+          margin: { left: margin, right: margin },
+          head: [['URL', 'Status', 'Recommended Fix']],
+          body: ext.brokenLinks.brokenLinks.slice(0, 40).map(b => [b.url, String(b.statusCode), b.recommendation]),
+          theme: 'grid',
+          headStyles: { fillColor: COLORS.red, textColor: COLORS.white, fontSize: 9 },
+          styles: { fontSize: 8, cellPadding: 3, textColor: COLORS.text, overflow: 'linebreak' },
+          columnStyles: { 0: { cellWidth: 75 }, 1: { halign: 'center', cellWidth: 18, fontStyle: 'bold' }, 2: { cellWidth: contentWidth - 93 } },
+        });
+        y = (doc as any).lastAutoTable.finalY + 10;
+      }
+    }
+
+    // ---- Robots.txt ----
+    if (ext.robotsTxt) {
+      sectionHeader('Robots.txt Review');
+      doc.setTextColor(...COLORS.text);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      const robotsLine = ext.robotsTxt.exists
+        ? `robots.txt found · ${ext.robotsTxt.disallowedPaths.length} Disallow rules · ${ext.robotsTxt.sitemapReferences.length} sitemap references`
+        : 'robots.txt missing — search engines crawl with no directives.';
+      doc.text(robotsLine, margin, y);
+      y += 6;
+      const rows = (ext.robotsTxt.disallowedAnalysis ?? []).map(d => [d.path, d.userAgent || '*', d.impact]);
+      if (rows.length > 0) {
+        autoTable(doc, {
+          startY: y,
+          margin: { left: margin, right: margin },
+          head: [['Disallow Path', 'User-Agent', 'SEO Impact']],
+          body: rows.slice(0, 25),
+          theme: 'grid',
+          headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontSize: 9 },
+          styles: { fontSize: 8.5, cellPadding: 3, textColor: COLORS.text, overflow: 'linebreak' },
+          columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' }, 1: { cellWidth: 28, halign: 'center' } },
+        });
+        y = (doc as any).lastAutoTable.finalY + 10;
+      } else {
+        y += 4;
+      }
+    }
+
+    // ---- Schema Markup ----
+    if (ext.schemaValidation) {
+      const s = ext.schemaValidation;
+      sectionHeader(`Schema Markup (${s.totalSchemas} schemas · ${s.errorCount} errors · ${s.warningCount} warnings)`);
+      if (!s.hasStructuredData) {
+        doc.setTextColor(...COLORS.text);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('No JSON-LD structured data detected. Rich results in Google and AI engines are unavailable.', margin, y);
+        y += 8;
+      } else {
+        autoTable(doc, {
+          startY: y,
+          margin: { left: margin, right: margin },
+          head: [['Schema Type', 'Status', 'Issues']],
+          body: s.schemas.slice(0, 20).map(sc => [sc.type, sc.status.toUpperCase(), sc.issues.join(' · ') || '—']),
+          theme: 'grid',
+          headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontSize: 9 },
+          styles: { fontSize: 8.5, cellPadding: 3, textColor: COLORS.text, overflow: 'linebreak' },
+          columnStyles: { 0: { cellWidth: 45, fontStyle: 'bold' }, 1: { cellWidth: 22, halign: 'center' } },
+          didParseCell: (data) => {
+            if (data.section === 'body' && data.column.index === 1) {
+              const v = data.cell.raw as string;
+              if (v === 'ERROR') data.cell.styles.textColor = COLORS.red;
+              else if (v === 'WARNING') data.cell.styles.textColor = COLORS.orange;
+              else data.cell.styles.textColor = COLORS.green;
+            }
+          },
+        });
+        y = (doc as any).lastAutoTable.finalY + 10;
+      }
+    }
+
+    // ---- AI Readiness & Shopping ----
+    if (ext.aiReadiness) {
+      const a = ext.aiReadiness;
+      sectionHeader(`AI Readiness (${a.recommendationsScore}/100${a.aiShoppingScore != null ? ` · AI Shopping ${a.aiShoppingScore}/100` : ''})`);
+      const rows: string[][] = [
+        ['llms.txt present', a.hasLlmsTxt ? 'Yes' : 'No'],
+        ['Product schema', a.hasProductSchema ? 'Yes' : 'No'],
+        ['FAQ schema', a.hasFaqSchema ? 'Yes' : 'No'],
+        ['Organization schema', a.hasOrganizationSchema ? 'Yes' : 'No'],
+        ['Article schema', a.hasArticleSchema ? 'Yes' : 'No'],
+      ];
+      a.aiCrawlersAllowed.forEach(c => rows.push([`${c.bot} access`, c.allowed ? 'Allowed' : 'Blocked']));
+      autoTable(doc, {
+        startY: y,
+        margin: { left: margin, right: margin },
+        head: [['Signal', 'Status']],
+        body: rows,
+        theme: 'grid',
+        headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontSize: 9 },
+        styles: { fontSize: 9, cellPadding: 3, textColor: COLORS.text },
+        columnStyles: { 1: { halign: 'center', fontStyle: 'bold', cellWidth: 35 } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+
+      if (a.aiShoppingSignals && a.aiShoppingSignals.length > 0) {
+        checkPageBreak(20);
+        doc.setTextColor(...COLORS.primary);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('AI Shopping & Recommendation Signals', margin, y);
+        y += 4;
+        autoTable(doc, {
+          startY: y + 2,
+          margin: { left: margin, right: margin },
+          head: [['Signal', 'Present', 'Impact']],
+          body: a.aiShoppingSignals.map(s => [s.signal, s.present ? 'Yes' : 'No', s.impact]),
+          theme: 'grid',
+          headStyles: { fillColor: COLORS.accent, textColor: COLORS.white, fontSize: 9 },
+          styles: { fontSize: 8.5, cellPadding: 3, textColor: COLORS.text, overflow: 'linebreak' },
+          columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' }, 1: { halign: 'center', cellWidth: 18 } },
+          didParseCell: (data) => {
+            if (data.section === 'body' && data.column.index === 1) {
+              data.cell.styles.textColor = (data.cell.raw === 'Yes') ? COLORS.green : COLORS.red;
+              data.cell.styles.fontStyle = 'bold';
+            }
+          },
+        });
+        y = (doc as any).lastAutoTable.finalY + 10;
+      }
+    }
+
+    // ---- SEO Ranking Signals ----
+    if (ext.seoRanking) {
+      const r = ext.seoRanking;
+      sectionHeader(`SEO Ranking Signals (Authority ${r.estimatedAuthority}/100 · ${r.indexability})`);
+      if (r.rankingSignals.length > 0) {
+        autoTable(doc, {
+          startY: y,
+          margin: { left: margin, right: margin },
+          head: [['Signal', 'Status', 'Impact']],
+          body: r.rankingSignals.map(s => [s.signal, s.status.toUpperCase(), s.impact]),
+          theme: 'grid',
+          headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontSize: 9 },
+          styles: { fontSize: 8.5, cellPadding: 3, textColor: COLORS.text, overflow: 'linebreak' },
+          columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' }, 1: { cellWidth: 22, halign: 'center' } },
+          didParseCell: (data) => {
+            if (data.section === 'body' && data.column.index === 1) {
+              const v = data.cell.raw as string;
+              if (v === 'MISSING') data.cell.styles.textColor = COLORS.red;
+              else if (v === 'WARNING') data.cell.styles.textColor = COLORS.orange;
+              else data.cell.styles.textColor = COLORS.green;
+            }
+          },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      }
+
+      if (r.liveKeywords && r.liveKeywords.length > 0) {
+        checkPageBreak(20);
+        doc.setTextColor(...COLORS.primary);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Live Google Rankings${r.liveSerpProvider ? ` · ${r.liveSerpProvider}` : ''}`, margin, y);
+        y += 4;
+        autoTable(doc, {
+          startY: y + 2,
+          margin: { left: margin, right: margin },
+          head: [['Keyword', 'Position', 'Volume', 'Difficulty']],
+          body: r.liveKeywords.map(k => [
+            k.keyword,
+            k.position == null ? 'Not in top 100' : `#${k.position}`,
+            k.searchVolume.toLocaleString(),
+            String(k.difficulty),
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: COLORS.accent, textColor: COLORS.white, fontSize: 9 },
+          styles: { fontSize: 9, cellPadding: 3, textColor: COLORS.text },
+          columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 2: { halign: 'center' }, 3: { halign: 'center' } },
+        });
+        y = (doc as any).lastAutoTable.finalY + 10;
+      }
+    }
+  }
+
   // =================== STRATEGIC ROADMAP ===================
+
   doc.addPage();
   y = 25;
   doc.setTextColor(...COLORS.primary);
