@@ -418,6 +418,9 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
             )}
           </div>
         )}
+
+        {/* Support / Contact CTA — always visible */}
+        <SupportContact result={result} />
       </div>
     </div>
   );
