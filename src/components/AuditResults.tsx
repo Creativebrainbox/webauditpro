@@ -11,6 +11,8 @@ import { AdvancedSeoSection } from './AdvancedSeoSection';
 import { ExtendedAuditSection } from './ExtendedAuditSection';
 import { ReportNavigation } from './ReportNavigation';
 import { ShareReport } from './ShareReport';
+import { SupportContact } from './SupportContact';
+import { RevenueCalculator } from './RevenueCalculator';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Filter, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -94,6 +96,9 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
 
         {/* Overall Score */}
         <OverallScore result={result} />
+
+        {/* Interactive Revenue Forecast */}
+        <RevenueCalculator result={result} />
 
         {/* Report Navigation */}
         <ReportNavigation
@@ -413,6 +418,9 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
             )}
           </div>
         )}
+
+        {/* Support / Contact CTA — always visible */}
+        <SupportContact result={result} />
       </div>
     </div>
   );
