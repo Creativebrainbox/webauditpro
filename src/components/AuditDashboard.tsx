@@ -180,7 +180,7 @@ export const AuditDashboard = ({ result }: Props) => {
       </SectionShell>
 
       {/* === Audit Compass === */}
-      <SectionShell title="Audit Compass" subtitle="Overall site health" icon={Gauge} accent="warning"
+      <SectionShell title="Audit Compass" subtitle="Overall site health" icon={GaugeIcon} accent="warning"
         right={<span className="text-xs text-muted-foreground hidden sm:inline">Higher is better</span>}>
         <div className="flex flex-col md:flex-row items-center gap-8">
           <Gauge score={result.overallScore} label="Health" />
