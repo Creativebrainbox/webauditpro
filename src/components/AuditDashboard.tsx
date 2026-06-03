@@ -3,7 +3,7 @@ import { AuditResult } from '@/types/audit';
 import { cn } from '@/lib/utils';
 import {
   Globe, Calendar, Layers, AlertTriangle, AlertCircle, CheckCircle2,
-  Bot, ShoppingBag, Search, Sparkles, ShieldCheck, Zap, Gauge,
+  Bot, ShoppingBag, Search, Sparkles, ShieldCheck, Zap, Gauge as GaugeIcon,
   TrendingUp, TrendingDown, Activity, Eye, FileCode2, Lock, Users,
 } from 'lucide-react';
 
