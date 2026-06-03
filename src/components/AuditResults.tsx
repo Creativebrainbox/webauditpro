@@ -13,6 +13,7 @@ import { ReportNavigation } from './ReportNavigation';
 import { ShareReport } from './ShareReport';
 import { SupportContact } from './SupportContact';
 import { RevenueCalculator } from './RevenueCalculator';
+import { AuditDashboard } from './AuditDashboard';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Filter, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -110,19 +111,11 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
           hasGrowth={!!result.growthForecast?.length}
         />
 
-        {/* Summary Section */}
+        {/* Summary Section — new dashboard layout */}
         {activeSection === 'summary' && (
           <>
-            {/* Score Cards Row */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <ScoreCard label="SEO" score={result.seoScore} icon="Search" />
-              <ScoreCard label="Performance" score={result.pageSpeed} icon="Zap" />
-              <ScoreCard label="Security" score={result.securityScore} icon="Shield" />
-              <ScoreCard label="Accessibility" score={result.accessibilityScore} icon="Eye" />
-              <ScoreCard label="Mobile" score={result.mobileScore} icon="Smartphone" />
-              <ScoreCard label="Conversion" score={result.conversionScore} icon="TrendingUp" />
-            </div>
-            
+            <AuditDashboard result={result} />
+
             {/* Download Proposal */}
             <ProposalDownload result={result} />
 
