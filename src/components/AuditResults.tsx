@@ -97,6 +97,9 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
         {/* Overall Score */}
         <OverallScore result={result} />
 
+        {/* Interactive Revenue Forecast */}
+        <RevenueCalculator result={result} />
+
         {/* Report Navigation */}
         <ReportNavigation
           activeSection={activeSection}
