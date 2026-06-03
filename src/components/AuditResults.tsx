@@ -13,6 +13,7 @@ import { ReportNavigation } from './ReportNavigation';
 import { ShareReport } from './ShareReport';
 import { SupportContact } from './SupportContact';
 import { RevenueCalculator } from './RevenueCalculator';
+import { AuditDashboard } from './AuditDashboard';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Filter, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
