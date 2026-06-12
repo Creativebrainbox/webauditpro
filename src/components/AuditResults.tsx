@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { AuditResult } from '@/types/audit';
 import { OverallScore } from './OverallScore';
 import { CategoryCard } from './CategoryCard';

@@ -1,0 +1,9 @@
+# WebAudit Pro
+
+> AI-powered website auditing tool that analyzes SEO, performance, security, and accessibility, then quantifies the revenue impact of each issue.
+
+WebAudit Pro scans any public website and produces a detailed audit report covering SEO, Core Web Vitals, security headers, schema/structured data, AI crawler readiness, and competitor benchmarking. Each finding includes an estimated revenue impact so users can prioritize fixes.
+
+## Pages
+
+- [Home](/): Run a free website audit and view the full report.
