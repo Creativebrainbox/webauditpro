@@ -1,4 +1,5 @@
  import { useState } from 'react';
+ import { Helmet } from 'react-helmet-async';
  import { useToast } from '@/hooks/use-toast';
 import { Hero } from '@/components/Hero';
 import { LoadingState } from '@/components/LoadingState';
@@ -55,7 +56,15 @@ const Index = () => {
     return <AuditResults result={result} onReset={handleReset} />;
   }
 
-  return <Hero onSubmit={handleSubmit} isLoading={false} />;
+  return (
+    <>
+      <Helmet>
+        <link rel="canonical" href="https://webauditpro.lovable.app/" />
+        <meta property="og:url" content="https://webauditpro.lovable.app/" />
+      </Helmet>
+      <Hero onSubmit={handleSubmit} isLoading={false} />
+    </>
+  );
 };
 
 export default Index;

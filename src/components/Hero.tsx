@@ -87,7 +87,7 @@ export const Hero = ({ onSubmit, isLoading }: HeroProps) => {
                 <div className="inline-flex p-3 rounded-xl bg-secondary mb-3">
                   <Icon className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="font-semibold mb-1">{feature.title}</h3>
+                <h2 className="font-semibold mb-1 text-base">{feature.title}</h2>
                 <p className="text-sm text-muted-foreground">{feature.description}</p>
               </div>
             );
