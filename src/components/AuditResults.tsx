@@ -54,7 +54,17 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
 
   return (
     <div className="min-h-screen py-8 px-4">
+      <Helmet>
+        <title>{`Audit Report for ${result.domain} — WebAudit Pro`}</title>
+        <meta name="description" content={`Website audit report for ${result.domain}: SEO, performance, security, and revenue-impact analysis.`} />
+        <link rel="canonical" href={result.reportId ? `https://webauditpro.lovable.app/report/${result.reportId}` : `https://webauditpro.lovable.app/`} />
+        <meta property="og:title" content={`Audit Report for ${result.domain}`} />
+        <meta property="og:description" content={`SEO, performance, and revenue-impact audit for ${result.domain}.`} />
+        <meta property="og:type" content="article" />
+        <meta property="og:url" content={result.reportId ? `https://webauditpro.lovable.app/report/${result.reportId}` : `https://webauditpro.lovable.app/`} />
+      </Helmet>
       <div className="max-w-7xl mx-auto space-y-6">
+        <h1 className="sr-only">{`Audit Report for ${result.domain}`}</h1>
         {/* Header */}
         <div className="flex items-center justify-between">
           <Button variant="ghost" onClick={onReset} className="gap-2">
