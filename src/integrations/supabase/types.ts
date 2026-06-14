@@ -38,15 +38,119 @@ export type Database = {
         }
         Relationships: []
       }
+      leads: {
+        Row: {
+          agency_logo_url: string | null
+          agency_name: string | null
+          agency_website: string | null
+          audit_score: number | null
+          company_name: string | null
+          created_at: string
+          delivery_status: string | null
+          email: string
+          email_sent: boolean
+          email_sent_at: string | null
+          full_name: string
+          id: string
+          ip_address: string | null
+          opportunity_level:
+            | Database["public"]["Enums"]["opportunity_level"]
+            | null
+          pdf_url: string | null
+          report_id: string | null
+          store_url: string
+          telegram_sent: boolean
+          user_type: Database["public"]["Enums"]["user_type"]
+          whatsapp: string | null
+        }
+        Insert: {
+          agency_logo_url?: string | null
+          agency_name?: string | null
+          agency_website?: string | null
+          audit_score?: number | null
+          company_name?: string | null
+          created_at?: string
+          delivery_status?: string | null
+          email: string
+          email_sent?: boolean
+          email_sent_at?: string | null
+          full_name: string
+          id?: string
+          ip_address?: string | null
+          opportunity_level?:
+            | Database["public"]["Enums"]["opportunity_level"]
+            | null
+          pdf_url?: string | null
+          report_id?: string | null
+          store_url: string
+          telegram_sent?: boolean
+          user_type: Database["public"]["Enums"]["user_type"]
+          whatsapp?: string | null
+        }
+        Update: {
+          agency_logo_url?: string | null
+          agency_name?: string | null
+          agency_website?: string | null
+          audit_score?: number | null
+          company_name?: string | null
+          created_at?: string
+          delivery_status?: string | null
+          email?: string
+          email_sent?: boolean
+          email_sent_at?: string | null
+          full_name?: string
+          id?: string
+          ip_address?: string | null
+          opportunity_level?:
+            | Database["public"]["Enums"]["opportunity_level"]
+            | null
+          pdf_url?: string | null
+          report_id?: string | null
+          store_url?: string
+          telegram_sent?: boolean
+          user_type?: Database["public"]["Enums"]["user_type"]
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      opportunity_level: "healthy" | "moderate" | "high" | "critical"
+      user_type: "store_owner" | "agency"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -173,6 +277,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      opportunity_level: ["healthy", "moderate", "high", "critical"],
+      user_type: ["store_owner", "agency"],
+    },
   },
 } as const
