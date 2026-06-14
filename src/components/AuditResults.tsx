@@ -135,7 +135,7 @@ export const AuditResults = ({ result, onReset, lead = null }: AuditResultsProps
             <AuditDashboard result={result} />
 
             {/* Download Proposal */}
-            <ProposalDownload result={result} />
+            <ProposalDownload result={result} lead={lead} />
 
             {/* Category Cards */}
             <div>
