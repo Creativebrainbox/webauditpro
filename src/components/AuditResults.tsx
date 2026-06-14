@@ -15,16 +15,20 @@ import { ShareReport } from './ShareReport';
 import { SupportContact } from './SupportContact';
 import { RevenueCalculator } from './RevenueCalculator';
 import { AuditDashboard } from './AuditDashboard';
+import { AuditSummaryCTA } from './AuditSummaryCTA';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Filter, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LeadFormData } from '@/types/lead';
 
 interface AuditResultsProps {
   result: AuditResult;
   onReset: () => void;
+  lead?: LeadFormData | null;
 }
 
-export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
+export const AuditResults = ({ result, onReset, lead = null }: AuditResultsProps) => {
+  const isAgency = lead?.user_type === 'agency';
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
   const [severityTab, setSeverityTab] = useState<'all' | 'critical' | 'warning' | 'passed'>('all');
@@ -106,6 +110,9 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
           </div>
         )}
 
+        {/* Branded summary + opportunity + CTA */}
+        <AuditSummaryCTA result={result} lead={lead} />
+
         {/* Overall Score */}
         <OverallScore result={result} />
 
@@ -128,7 +135,7 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
             <AuditDashboard result={result} />
 
             {/* Download Proposal */}
-            <ProposalDownload result={result} />
+            <ProposalDownload result={result} lead={lead} />
 
             {/* Category Cards */}
             <div>
@@ -423,8 +430,8 @@ export const AuditResults = ({ result, onReset }: AuditResultsProps) => {
           </div>
         )}
 
-        {/* Support / Contact CTA — always visible */}
-        <SupportContact result={result} />
+        {/* Support / Contact CTA — hidden for agency white-label */}
+        {!isAgency && <SupportContact result={result} />}
       </div>
     </div>
   );
