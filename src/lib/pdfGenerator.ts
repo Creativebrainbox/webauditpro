@@ -188,7 +188,14 @@ async function fetchImageAsDataUrl(url: string): Promise<{ data: string; format:
   }
 }
 
-export async function generateAuditPDF(result: AuditResult): Promise<void> {
+export interface PdfBranding {
+  brandName?: string;
+  hideWebAuditProBranding?: boolean;
+}
+
+export async function generateAuditPDF(result: AuditResult, branding: PdfBranding = {}): Promise<void> {
+  const brandName = branding.brandName || 'Web Audit Pro';
+  const footerLabel = branding.hideWebAuditProBranding ? `${brandName} — SWOT Strategic Report` : 'Web Audit Pro — SWOT Strategic Report';
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -236,7 +243,7 @@ export async function generateAuditPDF(result: AuditResult): Promise<void> {
   doc.text(`PREPARED FOR: ${result.domain}`, pageWidth / 2, 95, { align: 'center' });
   doc.text(`DOMAIN: ${result.url}`, pageWidth / 2, 103, { align: 'center' });
   doc.text(`DATE: ${date}`, pageWidth / 2, 111, { align: 'center' });
-  doc.text('PREPARED BY: WebAudit Pro', pageWidth / 2, 119, { align: 'center' });
+  doc.text(`PREPARED BY: ${brandName}`, pageWidth / 2, 119, { align: 'center' });
 
   // =================== WEBSITE PREVIEW (proof of site) ===================
   if (screenshot) {
@@ -951,7 +958,7 @@ export async function generateAuditPDF(result: AuditResult): Promise<void> {
     doc.setFontSize(8);
     doc.setTextColor(...COLORS.muted);
     doc.setFont('helvetica', 'normal');
-    doc.text('WebAudit Pro — SWOT Strategic Report', margin, pageHeight - 10);
+    doc.text(footerLabel, margin, pageHeight - 10);
     doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
     doc.setFillColor(...COLORS.accent);
     doc.rect(0, pageHeight - 5, pageWidth, 2, 'F');
