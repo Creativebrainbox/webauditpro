@@ -16,7 +16,7 @@ export const SupportContact = ({ result }: SupportContactProps) => {
 
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}`;
   const telegramUrl = `https://t.me/${TELEGRAM_HANDLE}`;
-  const emailUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Complete Website Audit — ${result.domain}`)}&body=${encoded}`;
+  const emailUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Comprehensive Website Audit Report — ${result.domain}`)}&body=${encoded}`;
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-success/30 bg-gradient-to-br from-success/10 via-background to-primary/10 p-8 animate-fade-up">
@@ -30,7 +30,7 @@ export const SupportContact = ({ result }: SupportContactProps) => {
         </div>
 
         <p className="text-base md:text-lg text-foreground/90 leading-relaxed">
-          “I just saw my Complete Website Audit. Let's start Phase 1 and fix
+          “I just saw my Comprehensive Website Audit Report. Let's start Phase 1 and fix
           the SEO, speed and conversion leaks losing me revenue.”
         </p>
 
