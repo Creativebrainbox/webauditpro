@@ -26,12 +26,12 @@ export const SupportContact = ({ result }: SupportContactProps) => {
       <div className="relative max-w-2xl mx-auto text-center space-y-5">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-success/15 border border-success/30 text-success text-xs font-semibold uppercase tracking-wider">
           <Sparkles className="w-3.5 h-3.5" />
-          Ready to Activate Your AI Storefront?
+          Ready to Fix Your Website?
         </div>
 
         <p className="text-base md:text-lg text-foreground/90 leading-relaxed">
-          “I just saw my AI Visibility Report. Let's start Phase 1 and unlock
-          the free AI traffic your competitors are already getting.”
+          “I just saw my Complete Website Audit. Let's start Phase 1 and fix
+          the SEO, speed and conversion leaks losing me revenue.”
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
