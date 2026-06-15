@@ -11,7 +11,7 @@ interface SupportContactProps {
 }
 
 export const SupportContact = ({ result }: SupportContactProps) => {
-  const message = `Hi there! 👋\n\nI just reviewed my Complete Website Audit for *${result.domain}* and I'm genuinely surprised by how many issues were flagged across SEO, performance, security and conversion.\n\nScore: ${result.overallScore}/100 — clearly there's work to do, and I'd rather fix it before my competitors pull further ahead.\n\nI'm interested in starting Phase 1 (Website Optimization). Can you walk me through what the first 30 days look like, turnaround time, and pricing?\n\nAlso — do you offer any guarantees or performance benchmarks once the fixes are live?\n\nLooking forward to hearing from you.`;
+  const message = `Hi there! 👋\n\nI just reviewed my Comprehensive Website Audit Report for *${result.domain}* and I'm genuinely surprised by how many issues were flagged across SEO, performance, security and conversion.\n\nScore: ${result.overallScore}/100 — clearly there's work to do, and I'd rather fix it before my competitors pull further ahead.\n\nI'm interested in starting Phase 1 (Website Optimization). Can you walk me through what the first 30 days look like, turnaround time, and pricing?\n\nAlso — do you offer any guarantees or performance benchmarks once the fixes are live?\n\nLooking forward to hearing from you.`;
   const encoded = encodeURIComponent(message);
 
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}`;
