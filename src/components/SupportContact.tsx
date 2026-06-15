@@ -15,7 +15,7 @@ export const SupportContact = ({ result }: SupportContactProps) => {
   const encoded = encodeURIComponent(message);
 
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}`;
-  const telegramUrl = `https://t.me/${TELEGRAM_HANDLE}`;
+  const telegramUrl = `https://t.me/share/url?text=${encoded}`;
   const emailUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Comprehensive Website Audit Report — ${result.domain}`)}&body=${encoded}`;
 
   return (
