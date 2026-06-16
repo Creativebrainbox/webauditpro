@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           domain: string
           id: string
+          resolved_issue_ids: string[]
           result: Json
           url: string
         }
@@ -26,6 +27,7 @@ export type Database = {
           created_at?: string
           domain: string
           id?: string
+          resolved_issue_ids?: string[]
           result: Json
           url: string
         }
@@ -33,6 +35,7 @@ export type Database = {
           created_at?: string
           domain?: string
           id?: string
+          resolved_issue_ids?: string[]
           result?: Json
           url?: string
         }
