@@ -58,7 +58,7 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-export const IssueCard = ({ issue, index }: IssueCardProps) => {
+export const IssueCard = ({ issue, index, isResolved = false, canResolve = false, onToggleResolved }: IssueCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const config = severityConfig[issue.severity];
   const Icon = config.icon;
@@ -67,8 +67,8 @@ export const IssueCard = ({ issue, index }: IssueCardProps) => {
     <div
       className={cn(
         'rounded-xl border transition-all duration-300 opacity-0 animate-fade-up overflow-hidden',
-        config.bg,
-        config.border,
+        isResolved ? 'bg-success/10 border-success/40' : config.bg,
+        isResolved ? '' : config.border,
         `stagger-${Math.min(index + 1, 6)}`
       )}
     >
