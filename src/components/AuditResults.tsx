@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Filter, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LeadFormData } from '@/types/lead';
+import { useResolvedIssues } from '@/hooks/useResolvedIssues';
 
 interface AuditResultsProps {
   result: AuditResult;
@@ -29,6 +30,7 @@ interface AuditResultsProps {
 
 export const AuditResults = ({ result, onReset, lead = null }: AuditResultsProps) => {
   const isAgency = lead?.user_type === 'agency';
+  const { resolved, isAdmin, toggle } = useResolvedIssues(result.reportId);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
   const [severityTab, setSeverityTab] = useState<'all' | 'critical' | 'warning' | 'passed'>('all');
