@@ -9,6 +9,9 @@ import { cn } from '@/lib/utils';
 interface IssueCardProps {
   issue: AuditIssue;
   index: number;
+  isResolved?: boolean;
+  canResolve?: boolean;
+  onToggleResolved?: (id: string) => void;
 }
 
 const severityConfig = {
