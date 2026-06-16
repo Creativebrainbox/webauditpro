@@ -49,7 +49,7 @@ export const SupportContact = ({ result }: SupportContactProps) => {
             </a>
           </Button>
           <Button asChild size="lg" variant="gradient">
-            <a href={emailUrl}>
+            <a href={emailUrl} target="_blank" rel="noopener noreferrer">
               <Mail className="w-5 h-5" />
               Email
             </a>
