@@ -10,14 +10,19 @@ interface Props {
   lead: LeadFormData | null;
 }
 
-const WHATSAPP = 'https://wa.me/447451250738';
-const TELEGRAM = 'https://t.me/webauditpro';
-const EMAIL = 'mailto:webauditproteam@gmail.com';
+const WHATSAPP_NUMBER = '447451250738';
+const SUPPORT_EMAIL = 'webauditproteam@gmail.com';
 
 export const AuditSummaryCTA = ({ result, lead }: Props) => {
   const level = getOpportunityLevel(result.overallScore);
   const isAgency = lead?.user_type === 'agency';
   const brandedBy = isAgency ? (lead?.agency_name || 'Your Agency') : 'Web Audit Pro';
+  const supportMessage = `Hi there! 👋\n\nI just reviewed my Comprehensive Website Audit Report for ${result.domain}. The report flagged issues across SEO, performance, security, conversion, and overall website optimization.\n\nWebsite Score: ${result.overallScore}/100\n\nI'm interested in starting Phase 1 (Website Optimization). Please walk me through the first 30 days, turnaround time, pricing, and what results or benchmarks I can expect once the fixes are live.\n\nLooking forward to hearing from you.`;
+  const encodedSupportMessage = encodeURIComponent(supportMessage);
+  const whatsappUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodedSupportMessage}`;
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : `https://${result.domain}`;
+  const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodedSupportMessage}`;
+  const emailUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Comprehensive Website Audit Report — ${result.domain}`)}&body=${encodedSupportMessage}`;
 
   const topIssues = [...result.issues]
     .filter((i) => ['critical', 'error'].includes(i.severity))
@@ -81,17 +86,17 @@ export const AuditSummaryCTA = ({ result, lead }: Props) => {
             <p className="text-muted-foreground">We can help you improve SEO, conversion rate, website speed, store redesign, and full optimization.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <Button asChild size="lg" className="bg-[#25D366] hover:bg-[#1ebe57] text-white">
-                <a href={WHATSAPP} target="_blank" rel="noopener noreferrer"><MessageCircle className="w-5 h-5" /> WhatsApp Chat</a>
+                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"><MessageCircle className="w-5 h-5" /> WhatsApp Chat</a>
               </Button>
               <Button asChild size="lg" className="bg-[#229ED9] hover:bg-[#1b87bb] text-white">
-                <a href={TELEGRAM} target="_blank" rel="noopener noreferrer"><Send className="w-5 h-5" /> Telegram Chat</a>
+                <a href={telegramUrl} target="_blank" rel="noopener noreferrer"><Send className="w-5 h-5" /> Telegram Chat</a>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <a href={EMAIL}><Mail className="w-5 h-5" /> Email Support</a>
+                <a href={emailUrl} target="_blank" rel="noopener noreferrer"><Mail className="w-5 h-5" /> Email Support</a>
               </Button>
             </div>
             <Button asChild size="lg" variant="hero" className="mt-3">
-              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer">
+              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
                 <CalendarCheck className="w-5 h-5" /> 👉 Book a Free Consultation
               </a>
             </Button>
