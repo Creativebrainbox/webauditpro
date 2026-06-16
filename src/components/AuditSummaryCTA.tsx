@@ -113,8 +113,14 @@ export const AuditSummaryCTA = ({ result, lead }: Props) => {
               <Button asChild size="lg" className="bg-[#25D366] hover:bg-[#1ebe57] text-white">
                 <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"><MessageCircle className="w-5 h-5" /> WhatsApp Chat</a>
               </Button>
-              <Button asChild size="lg" className="bg-[#229ED9] hover:bg-[#1b87bb] text-white">
-                <a href={telegramUrl} target="_blank" rel="noopener noreferrer"><Send className="w-5 h-5" /> Telegram Chat</a>
+              <Button
+                size="lg"
+                className="bg-[#229ED9] hover:bg-[#1b87bb] text-white"
+                onClick={handleTelegram}
+                disabled={sendingTelegram}
+              >
+                {sendingTelegram ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                {sendingTelegram ? 'Sending…' : 'Notify on Telegram'}
               </Button>
               <Button asChild size="lg" variant="outline">
                 <a href={emailUrl} target="_blank" rel="noopener noreferrer"><Mail className="w-5 h-5" /> Email Support</a>
