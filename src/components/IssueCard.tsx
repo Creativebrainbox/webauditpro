@@ -97,13 +97,35 @@ export const IssueCard = ({ issue, index, isResolved = false, canResolve = false
                 )}>
                   {issue.priority.charAt(0).toUpperCase() + issue.priority.slice(1)} Priority
                 </span>
+                {isResolved && (
+                  <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-success/20 text-success inline-flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Resolved
+                  </span>
+                )}
               </div>
-              <h4 className="font-semibold text-lg mb-2">{issue.title}</h4>
+              <h4 className={cn('font-semibold text-lg mb-2', isResolved && 'line-through text-muted-foreground')}>{issue.title}</h4>
               <p className="text-sm text-muted-foreground line-clamp-2">{issue.description}</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {canResolve && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); onToggleResolved?.(issue.id); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onToggleResolved?.(issue.id); } }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer',
+                  isResolved
+                    ? 'bg-success/15 text-success border-success/40 hover:bg-success/25'
+                    : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'
+                )}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {isResolved ? 'Resolved' : 'Mark resolved'}
+              </span>
+            )}
             {/* Revenue Impact Summary */}
             <div className="hidden md:flex items-center gap-4">
               <div className="text-right">
