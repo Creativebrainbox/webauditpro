@@ -1,6 +1,9 @@
-import { MessageCircle, Send, Mail, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { MessageCircle, Send, Mail, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AuditResult } from '@/types/audit';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 const WHATSAPP_NUMBER = '447451250738';
 const TELEGRAM_HANDLE = 'webauditpro';
@@ -11,13 +14,34 @@ interface SupportContactProps {
 }
 
 export const SupportContact = ({ result }: SupportContactProps) => {
+  const [sendingTelegram, setSendingTelegram] = useState(false);
+
   const message = `Hi there! 👋\n\nI just reviewed my Comprehensive Website Audit Report for *${result.domain}* and I'm genuinely surprised by how many issues were flagged across SEO, performance, security and conversion.\n\nScore: ${result.overallScore}/100 — clearly there's work to do, and I'd rather fix it before my competitors pull further ahead.\n\nI'm interested in starting Phase 1 (Website Optimization). Can you walk me through what the first 30 days look like, turnaround time, and pricing?\n\nAlso — do you offer any guarantees or performance benchmarks once the fixes are live?\n\nLooking forward to hearing from you.`;
   const encoded = encodeURIComponent(message);
 
+  const reportUrl = typeof window !== 'undefined' ? window.location.href : `https://${result.domain}`;
   const whatsappUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encoded}`;
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : `https://${result.domain}`;
-  const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encoded}`;
   const emailUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Comprehensive Website Audit Report — ${result.domain}`)}&body=${encoded}`;
+
+  const handleTelegram = async () => {
+    setSendingTelegram(true);
+    try {
+      const { error } = await supabase.functions.invoke('notify-telegram', {
+        body: {
+          domain: result.domain,
+          score: result.overallScore,
+          reportUrl,
+          note: `Visitor reviewed their report and wants to start Phase 1 (Website Optimization). Reach out to them.`,
+        },
+      });
+      if (error) throw error;
+      toast({ title: 'Sent!', description: 'Your interest was sent. We will reach out shortly.' });
+    } catch (e) {
+      toast({ title: 'Could not send', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setSendingTelegram(false);
+    }
+  };
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-success/30 bg-gradient-to-br from-success/10 via-background to-primary/10 p-8 animate-fade-up">
@@ -42,11 +66,14 @@ export const SupportContact = ({ result }: SupportContactProps) => {
               WhatsApp
             </a>
           </Button>
-          <Button asChild size="lg" className="bg-[#229ED9] hover:bg-[#1b87bb] text-white shadow-glow">
-            <a href={telegramUrl} target="_blank" rel="noopener noreferrer">
-              <Send className="w-5 h-5" />
-              Telegram
-            </a>
+          <Button
+            size="lg"
+            className="bg-[#229ED9] hover:bg-[#1b87bb] text-white shadow-glow"
+            onClick={handleTelegram}
+            disabled={sendingTelegram}
+          >
+            {sendingTelegram ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            {sendingTelegram ? 'Sending…' : 'Notify on Telegram'}
           </Button>
           <Button asChild size="lg" variant="gradient">
             <a href={emailUrl} target="_blank" rel="noopener noreferrer">
