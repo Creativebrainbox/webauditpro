@@ -951,6 +951,62 @@ export async function generateAuditPDF(result: AuditResult, branding: PdfBrandin
   doc.setFont('helvetica', 'bold');
   doc.text(`Total Annual Impact: ${formatCurrency(annualImpact)}`, pageWidth / 2, y + 11, { align: 'center' });
 
+  // =================== CONTACT (clickable) ===================
+  if (!branding.hideWebAuditProBranding) {
+    doc.addPage();
+    y = 30;
+    doc.setFillColor(...COLORS.dark);
+    doc.rect(0, 0, pageWidth, 50, 'F');
+    doc.setFillColor(...COLORS.accent);
+    doc.rect(0, 50, pageWidth, 2, 'F');
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Let’s Talk', pageWidth / 2, 28, { align: 'center' });
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(180, 200, 230);
+    doc.text('Tap any link below to start your Phase 1 (Website Optimization).', pageWidth / 2, 40, { align: 'center' });
+
+    y = 75;
+    const WA = '447451250738';
+    const TG = 'webauditpro';
+    const EMAIL = 'webauditproteam@gmail.com';
+    const SITE = 'https://webauditpro.lovable.app';
+    const prefill = encodeURIComponent(
+      `Hi — I just reviewed my Comprehensive Website Audit Report for ${result.domain} (Score: ${result.overallScore}/100). I want to start Phase 1 (Website Optimization). Please share next steps, timeline and pricing.`
+    );
+
+    const rows: { label: string; value: string; url: string }[] = [
+      { label: 'WhatsApp', value: `+${WA}`, url: `https://api.whatsapp.com/send?phone=${WA}&text=${prefill}` },
+      { label: 'Telegram', value: `t.me/${TG}`, url: `https://t.me/${TG}` },
+      { label: 'Email',    value: EMAIL,       url: `mailto:${EMAIL}?subject=${encodeURIComponent('Phase 1 — ' + result.domain)}&body=${prefill}` },
+      { label: 'Website',  value: SITE.replace('https://',''), url: SITE },
+      { label: 'Your Report', value: result.reportId ? `webauditpro.lovable.app/report/${result.reportId}` : result.url, url: result.reportId ? `https://webauditpro.lovable.app/report/${result.reportId}` : result.url },
+    ];
+
+    rows.forEach((row) => {
+      doc.setFillColor(...COLORS.light);
+      doc.roundedRect(margin, y, contentWidth, 16, 2, 2, 'F');
+      doc.setFillColor(...COLORS.accent);
+      doc.rect(margin, y, 3, 16, 'F');
+      doc.setTextColor(...COLORS.dark);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(row.label, margin + 7, y + 10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.accent);
+      doc.textWithLink(row.value, margin + 45, y + 10, { url: row.url });
+      y += 20;
+    });
+
+    y += 4;
+    doc.setTextColor(...COLORS.muted);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Free 24-hour consultation • No commitment • Reply within 1 business day.', pageWidth / 2, y, { align: 'center' });
+  }
+
   // Footer
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {

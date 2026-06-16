@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { AuditResult } from '@/types/audit';
 import { LeadFormData } from '@/types/lead';
 import { getOpportunityLevel, getOpportunityLabel, getOpportunityColor } from '@/lib/opportunity';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Send, Mail, CalendarCheck, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { MessageCircle, Send, Mail, CalendarCheck, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface Props {
   result: AuditResult;
@@ -14,15 +17,37 @@ const WHATSAPP_NUMBER = '447451250738';
 const SUPPORT_EMAIL = 'webauditproteam@gmail.com';
 
 export const AuditSummaryCTA = ({ result, lead }: Props) => {
+  const [sendingTelegram, setSendingTelegram] = useState(false);
   const level = getOpportunityLevel(result.overallScore);
   const isAgency = lead?.user_type === 'agency';
   const brandedBy = isAgency ? (lead?.agency_name || 'Your Agency') : 'Web Audit Pro';
   const supportMessage = `Hi there! 👋\n\nI just reviewed my Comprehensive Website Audit Report for ${result.domain}. The report flagged issues across SEO, performance, security, conversion, and overall website optimization.\n\nWebsite Score: ${result.overallScore}/100\n\nI'm interested in starting Phase 1 (Website Optimization). Please walk me through the first 30 days, turnaround time, pricing, and what results or benchmarks I can expect once the fixes are live.\n\nLooking forward to hearing from you.`;
   const encodedSupportMessage = encodeURIComponent(supportMessage);
   const whatsappUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodedSupportMessage}`;
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : `https://${result.domain}`;
-  const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodedSupportMessage}`;
+  const reportUrl = typeof window !== 'undefined' ? window.location.href : `https://${result.domain}`;
   const emailUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Comprehensive Website Audit Report — ${result.domain}`)}&body=${encodedSupportMessage}`;
+
+  const handleTelegram = async () => {
+    setSendingTelegram(true);
+    try {
+      const { error } = await supabase.functions.invoke('notify-telegram', {
+        body: {
+          domain: result.domain,
+          score: result.overallScore,
+          reportUrl,
+          name: lead?.full_name,
+          contact: [lead?.email, lead?.whatsapp].filter(Boolean).join(' · '),
+          note: `Visitor wants to start Phase 1 (Website Optimization). Please reach out to them directly.`,
+        },
+      });
+      if (error) throw error;
+      toast({ title: 'Sent on Telegram', description: 'Your request has been delivered. Expect a reply within 24h.' });
+    } catch (e) {
+      toast({ title: 'Could not send', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setSendingTelegram(false);
+    }
+  };
 
   const topIssues = [...result.issues]
     .filter((i) => ['critical', 'error'].includes(i.severity))
@@ -88,8 +113,14 @@ export const AuditSummaryCTA = ({ result, lead }: Props) => {
               <Button asChild size="lg" className="bg-[#25D366] hover:bg-[#1ebe57] text-white">
                 <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"><MessageCircle className="w-5 h-5" /> WhatsApp Chat</a>
               </Button>
-              <Button asChild size="lg" className="bg-[#229ED9] hover:bg-[#1b87bb] text-white">
-                <a href={telegramUrl} target="_blank" rel="noopener noreferrer"><Send className="w-5 h-5" /> Telegram Chat</a>
+              <Button
+                size="lg"
+                className="bg-[#229ED9] hover:bg-[#1b87bb] text-white"
+                onClick={handleTelegram}
+                disabled={sendingTelegram}
+              >
+                {sendingTelegram ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                {sendingTelegram ? 'Sending…' : 'Notify on Telegram'}
               </Button>
               <Button asChild size="lg" variant="outline">
                 <a href={emailUrl} target="_blank" rel="noopener noreferrer"><Mail className="w-5 h-5" /> Email Support</a>
