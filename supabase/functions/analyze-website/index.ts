@@ -941,6 +941,17 @@ IMPORTANT:
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Identify the calling admin (if signed in) so the report is owned by them
+    let ownerUserId: string | null = null;
+    try {
+      const authHeader = req.headers.get('Authorization') || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+      if (token) {
+        const { data: userData } = await supabase.auth.getUser(token);
+        if (userData?.user?.id) ownerUserId = userData.user.id;
+      }
+    } catch (_) { /* anonymous */ }
+
     const resultObj = {
       url: formattedUrl, domain: domainName, auditDate: new Date().toISOString(),
       overallScore, totalRevenueLoss, potentialRevenueGain,
@@ -959,9 +970,10 @@ IMPORTANT:
 
     const { data: reportRow, error: dbError } = await supabase
       .from('audit_reports')
-      .insert({ url: formattedUrl, domain: domainName, result: resultObj })
+      .insert({ url: formattedUrl, domain: domainName, result: resultObj, owner_user_id: ownerUserId })
       .select('id')
       .single();
+
 
     if (dbError) console.error('[DB_ERROR]', dbError);
     
