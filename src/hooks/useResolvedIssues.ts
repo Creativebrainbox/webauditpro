@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+const SUPER_OWNER_EMAIL = 'thecreativebrainbox@gmail.com';
+
 export function useResolvedIssues(reportId: string | undefined) {
   const [resolved, setResolved] = useState<Set<string>>(new Set());
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [canResolve, setCanResolve] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -11,24 +13,24 @@ export function useResolvedIssues(reportId: string | undefined) {
     const load = async () => {
       if (!reportId) return;
       setLoading(true);
+
       const { data: row } = await (supabase as any)
         .from('audit_reports')
-        .select('resolved_issue_ids')
+        .select('resolved_issue_ids, owner_user_id')
         .eq('id', reportId)
         .maybeSingle();
+
       if (!cancelled && row?.resolved_issue_ids) {
         setResolved(new Set<string>(row.resolved_issue_ids as string[]));
       }
+
       const { data: auth } = await supabase.auth.getUser();
-      if (auth?.user) {
-        const { data: roleRow } = await (supabase as any)
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', auth.user.id)
-          .eq('role', 'admin')
-          .maybeSingle();
-        if (!cancelled) setIsAdmin(!!roleRow);
+      if (!cancelled && auth?.user) {
+        const isSuperOwner = (auth.user.email || '').toLowerCase() === SUPER_OWNER_EMAIL;
+        const isReportOwner = !!row?.owner_user_id && row.owner_user_id === auth.user.id;
+        setCanResolve(isSuperOwner || isReportOwner);
       }
+
       if (!cancelled) setLoading(false);
     };
     load();
@@ -36,7 +38,7 @@ export function useResolvedIssues(reportId: string | undefined) {
   }, [reportId]);
 
   const toggle = useCallback(async (issueId: string) => {
-    if (!reportId || !isAdmin) return;
+    if (!reportId || !canResolve) return;
     const next = new Set(resolved);
     if (next.has(issueId)) next.delete(issueId); else next.add(issueId);
     setResolved(next);
@@ -45,11 +47,10 @@ export function useResolvedIssues(reportId: string | undefined) {
       .update({ resolved_issue_ids: Array.from(next) })
       .eq('id', reportId);
     if (error) {
-      // rollback on failure
       setResolved(resolved);
       console.error('Failed to update resolved issues', error);
     }
-  }, [reportId, isAdmin, resolved]);
+  }, [reportId, canResolve, resolved]);
 
-  return { resolved, isAdmin, loading, toggle };
+  return { resolved, canResolve, loading, toggle };
 }
