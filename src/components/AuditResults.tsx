@@ -30,7 +30,7 @@ interface AuditResultsProps {
 
 export const AuditResults = ({ result, onReset, lead = null }: AuditResultsProps) => {
   const isAgency = lead?.user_type === 'agency';
-  const { resolved, isAdmin, toggle } = useResolvedIssues(result.reportId);
+  const { resolved, canResolve, toggle } = useResolvedIssues(result.reportId);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
   const [severityTab, setSeverityTab] = useState<'all' | 'critical' | 'warning' | 'passed'>('all');
@@ -183,7 +183,7 @@ export const AuditResults = ({ result, onReset, lead = null }: AuditResultsProps
               </div>
             </div>
             {result.issues.filter(i => i.category === 'Performance').map((issue, index) => (
-              <IssueCard key={issue.id} issue={issue} index={index} isResolved={resolved.has(issue.id)} canResolve={isAdmin} onToggleResolved={toggle} />
+              <IssueCard key={issue.id} issue={issue} index={index} isResolved={resolved.has(issue.id)} canResolve={canResolve} onToggleResolved={toggle} />
             ))}
             {result.issues.filter(i => i.category === 'Performance').length === 0 && (
               <div className="text-center py-12 text-muted-foreground">No performance issues detected.</div>
@@ -201,7 +201,7 @@ export const AuditResults = ({ result, onReset, lead = null }: AuditResultsProps
               </div>
             </div>
             {result.issues.filter(i => i.category === 'Mobile').map((issue, index) => (
-              <IssueCard key={issue.id} issue={issue} index={index} isResolved={resolved.has(issue.id)} canResolve={isAdmin} onToggleResolved={toggle} />
+              <IssueCard key={issue.id} issue={issue} index={index} isResolved={resolved.has(issue.id)} canResolve={canResolve} onToggleResolved={toggle} />
             ))}
             {result.issues.filter(i => i.category === 'Mobile').length === 0 && (
               <div className="text-center py-12 text-muted-foreground">No mobile issues detected.</div>
@@ -219,7 +219,7 @@ export const AuditResults = ({ result, onReset, lead = null }: AuditResultsProps
               </div>
             </div>
             {result.issues.filter(i => i.category === 'Accessibility').map((issue, index) => (
-              <IssueCard key={issue.id} issue={issue} index={index} isResolved={resolved.has(issue.id)} canResolve={isAdmin} onToggleResolved={toggle} />
+              <IssueCard key={issue.id} issue={issue} index={index} isResolved={resolved.has(issue.id)} canResolve={canResolve} onToggleResolved={toggle} />
             ))}
             {result.issues.filter(i => i.category === 'Accessibility').length === 0 && (
               <div className="text-center py-12 text-muted-foreground">No accessibility issues detected.</div>
@@ -420,7 +420,7 @@ export const AuditResults = ({ result, onReset, lead = null }: AuditResultsProps
             
             <div className="space-y-4">
               {sortedIssues.map((issue, index) => (
-                <IssueCard key={issue.id} issue={issue} index={index} isResolved={resolved.has(issue.id)} canResolve={isAdmin} onToggleResolved={toggle} />
+                <IssueCard key={issue.id} issue={issue} index={index} isResolved={resolved.has(issue.id)} canResolve={canResolve} onToggleResolved={toggle} />
               ))}
             </div>
             
