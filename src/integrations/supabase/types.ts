@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           domain: string
           id: string
+          owner_user_id: string | null
           resolved_issue_ids: string[]
           result: Json
           url: string
@@ -27,6 +28,7 @@ export type Database = {
           created_at?: string
           domain: string
           id?: string
+          owner_user_id?: string | null
           resolved_issue_ids?: string[]
           result: Json
           url: string
@@ -35,6 +37,7 @@ export type Database = {
           created_at?: string
           domain?: string
           id?: string
+          owner_user_id?: string | null
           resolved_issue_ids?: string[]
           result?: Json
           url?: string
@@ -149,6 +152,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_super_owner: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
