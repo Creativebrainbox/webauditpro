@@ -21,6 +21,10 @@ export async function saveLeadAndNotify(lead: LeadFormData, result: AuditResult)
 }
 
 export async function createPendingLead(lead: LeadFormData) {
+  // Capture the logged-in admin (if any) as the owner of this lead
+  const { data: auth } = await supabase.auth.getUser();
+  const ownerUserId = auth?.user?.id ?? null;
+
   // Insert immediately on submit so we never lose a lead
   const { data, error } = await supabase
     .from('leads')
@@ -34,7 +38,8 @@ export async function createPendingLead(lead: LeadFormData) {
       agency_name: lead.agency_name || null,
       agency_website: lead.agency_website || null,
       agency_logo_url: lead.agency_logo_url || null,
-    })
+      owner_user_id: ownerUserId,
+    } as any)
     .select('id')
     .single();
   if (error) {
@@ -43,3 +48,4 @@ export async function createPendingLead(lead: LeadFormData) {
   }
   return data?.id ?? null;
 }
+
