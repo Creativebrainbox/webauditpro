@@ -64,6 +64,15 @@ Deno.serve(async (req) => {
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null;
 
+    // Identify the calling admin (if any) so the lead is owned by them
+    let ownerUserId: string | null = null;
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      const { data: u } = await sb.auth.getUser(token);
+      if (u?.user) ownerUserId = u.user.id;
+    }
+
     const { data: inserted, error: insertErr } = await sb
       .from('leads')
       .insert({
@@ -80,9 +89,11 @@ Deno.serve(async (req) => {
         opportunity_level,
         report_id,
         ip_address: ip,
+        owner_user_id: ownerUserId,
       })
       .select('id')
       .single();
+
 
     if (insertErr) {
       console.error('insert lead', insertErr);
