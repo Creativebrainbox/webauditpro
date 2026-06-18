@@ -32,6 +32,8 @@ const opportunityColors: Record<string, string> = {
   critical: 'bg-destructive/15 text-destructive border-destructive/30',
 };
 
+const SUPER_OWNER_EMAIL = 'thecreativebrainbox@gmail.com';
+
 export default function Admin() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -39,12 +41,16 @@ export default function Admin() {
   const [authorized, setAuthorized] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filter, setFilter] = useState<'all' | 'store_owner' | 'agency' | 'critical' | 'high'>('all');
+  const [isSuperOwner, setIsSuperOwner] = useState(false);
 
   useEffect(() => {
     (async () => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) { navigate('/auth'); return; }
       const uid = sessionData.session.user.id;
+      const email = (sessionData.session.user.email || '').toLowerCase();
+      const superOwner = email === SUPER_OWNER_EMAIL;
+      setIsSuperOwner(superOwner);
       const { data: roleRow } = await supabase.from('user_roles').select('role').eq('user_id', uid).eq('role', 'admin').maybeSingle();
       if (!roleRow) {
         toast({ title: 'Access denied', description: 'Your account is not an admin.', variant: 'destructive' });
@@ -53,12 +59,14 @@ export default function Admin() {
         return;
       }
       setAuthorized(true);
+      // RLS scopes results: super owner sees all, other admins see only their own leads
       const { data: leadRows, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(500);
       if (error) toast({ title: 'Load failed', description: error.message, variant: 'destructive' });
       else setLeads(leadRows as Lead[]);
       setLoading(false);
     })();
   }, [navigate, toast]);
+
 
   const signOut = async () => { await supabase.auth.signOut(); navigate('/auth'); };
 
