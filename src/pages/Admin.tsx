@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Loader2, LogOut, Users, TrendingUp, AlertCircle, Briefcase, Store, BarChart3 } from 'lucide-react';
+import { Loader2, LogOut, Users, TrendingUp, AlertCircle, Briefcase, Store, BarChart3, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+
 
 interface Lead {
   id: string;
