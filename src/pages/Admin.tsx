@@ -105,11 +105,18 @@ export default function Admin() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-              <p className="text-xs text-muted-foreground">Lead management & audit analytics</p>
+              <p className="text-xs text-muted-foreground">
+                {isSuperOwner ? 'Owner view — every audit across all admins' : 'Showing only audits you generated'}
+              </p>
             </div>
           </div>
           <Button variant="ghost" onClick={signOut}><LogOut className="w-4 h-4" /> Sign Out</Button>
         </div>
+
+        <div className="rounded-lg border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
+          Open any report to tick issues as <span className="text-success font-medium">Resolved</span>. Resolved marks are saved per report and visible to clients viewing the shared link.
+        </div>
+
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard label="Total Audits" value={stats.total} icon={<Users className="w-4 h-4" />} />
