@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Loader2, LogOut, Users, TrendingUp, AlertCircle, Briefcase, Store, BarChart3 } from 'lucide-react';
+import { Loader2, LogOut, Users, TrendingUp, AlertCircle, Briefcase, Store, BarChart3, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+
 
 interface Lead {
   id: string;
@@ -31,6 +32,8 @@ const opportunityColors: Record<string, string> = {
   critical: 'bg-destructive/15 text-destructive border-destructive/30',
 };
 
+const SUPER_OWNER_EMAIL = 'thecreativebrainbox@gmail.com';
+
 export default function Admin() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -38,12 +41,16 @@ export default function Admin() {
   const [authorized, setAuthorized] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filter, setFilter] = useState<'all' | 'store_owner' | 'agency' | 'critical' | 'high'>('all');
+  const [isSuperOwner, setIsSuperOwner] = useState(false);
 
   useEffect(() => {
     (async () => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) { navigate('/auth'); return; }
       const uid = sessionData.session.user.id;
+      const email = (sessionData.session.user.email || '').toLowerCase();
+      const superOwner = email === SUPER_OWNER_EMAIL;
+      setIsSuperOwner(superOwner);
       const { data: roleRow } = await supabase.from('user_roles').select('role').eq('user_id', uid).eq('role', 'admin').maybeSingle();
       if (!roleRow) {
         toast({ title: 'Access denied', description: 'Your account is not an admin.', variant: 'destructive' });
@@ -52,12 +59,14 @@ export default function Admin() {
         return;
       }
       setAuthorized(true);
+      // RLS scopes results: super owner sees all, other admins see only their own leads
       const { data: leadRows, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(500);
       if (error) toast({ title: 'Load failed', description: error.message, variant: 'destructive' });
       else setLeads(leadRows as Lead[]);
       setLoading(false);
     })();
   }, [navigate, toast]);
+
 
   const signOut = async () => { await supabase.auth.signOut(); navigate('/auth'); };
 
@@ -96,11 +105,18 @@ export default function Admin() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-              <p className="text-xs text-muted-foreground">Lead management & audit analytics</p>
+              <p className="text-xs text-muted-foreground">
+                {isSuperOwner ? 'Owner view — every audit across all admins' : 'Showing only audits you generated'}
+              </p>
             </div>
           </div>
           <Button variant="ghost" onClick={signOut}><LogOut className="w-4 h-4" /> Sign Out</Button>
         </div>
+
+        <div className="rounded-lg border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
+          Open any report to tick issues as <span className="text-success font-medium">Resolved</span>. Resolved marks are saved per report and visible to clients viewing the shared link.
+        </div>
+
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard label="Total Audits" value={stats.total} icon={<Users className="w-4 h-4" />} />
@@ -133,6 +149,7 @@ export default function Admin() {
                 <th className="text-center px-4 py-3">Score</th>
                 <th className="text-center px-4 py-3">Opportunity</th>
                 <th className="text-center px-4 py-3">Delivery</th>
+                <th className="text-center px-4 py-3">Report</th>
               </tr>
             </thead>
             <tbody>
@@ -153,10 +170,25 @@ export default function Admin() {
                     <span className={l.email_sent ? 'text-success' : 'text-muted-foreground'}>✉</span>{' '}
                     <span className={l.telegram_sent ? 'text-success' : 'text-muted-foreground'}>📨</span>
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    {l.report_id ? (
+                      <a
+                        href={`/report/${l.report_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        Open <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">No leads yet.</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">No audits yet — run one from the homepage and it will appear here.</td></tr>
+
               )}
             </tbody>
           </table>

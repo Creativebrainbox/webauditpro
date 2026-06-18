@@ -62,6 +62,7 @@ export type Database = {
           opportunity_level:
             | Database["public"]["Enums"]["opportunity_level"]
             | null
+          owner_user_id: string | null
           pdf_url: string | null
           report_id: string | null
           store_url: string
@@ -86,6 +87,7 @@ export type Database = {
           opportunity_level?:
             | Database["public"]["Enums"]["opportunity_level"]
             | null
+          owner_user_id?: string | null
           pdf_url?: string | null
           report_id?: string | null
           store_url: string
@@ -110,6 +112,7 @@ export type Database = {
           opportunity_level?:
             | Database["public"]["Enums"]["opportunity_level"]
             | null
+          owner_user_id?: string | null
           pdf_url?: string | null
           report_id?: string | null
           store_url?: string
