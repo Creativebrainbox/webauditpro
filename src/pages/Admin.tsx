@@ -149,6 +149,7 @@ export default function Admin() {
                 <th className="text-center px-4 py-3">Score</th>
                 <th className="text-center px-4 py-3">Opportunity</th>
                 <th className="text-center px-4 py-3">Delivery</th>
+                <th className="text-center px-4 py-3">Report</th>
               </tr>
             </thead>
             <tbody>
@@ -169,10 +170,25 @@ export default function Admin() {
                     <span className={l.email_sent ? 'text-success' : 'text-muted-foreground'}>✉</span>{' '}
                     <span className={l.telegram_sent ? 'text-success' : 'text-muted-foreground'}>📨</span>
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    {l.report_id ? (
+                      <a
+                        href={`/report/${l.report_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        Open <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">No leads yet.</td></tr>
+                <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">No audits yet — run one from the homepage and it will appear here.</td></tr>
+
               )}
             </tbody>
           </table>
