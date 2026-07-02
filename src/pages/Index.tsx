@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Hero } from '@/components/Hero';
 import { UserTypeSelect } from '@/components/UserTypeSelect';
@@ -8,6 +9,7 @@ import { LoadingState } from '@/components/LoadingState';
 import { AuditResults } from '@/components/AuditResults';
 import { auditApi } from '@/lib/api/audit';
 import { saveLeadAndNotify } from '@/lib/api/leads';
+import { supabase } from '@/integrations/supabase/client';
 import { AuditResult } from '@/types/audit';
 import { LeadFormData, UserType } from '@/types/lead';
 import { Button } from '@/components/ui/button';
@@ -17,13 +19,34 @@ type Step = 'select_type' | 'lead_form' | 'loading' | 'complete';
 
 const Index = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [step, setStep] = useState<Step>('select_type');
   const [userType, setUserType] = useState<UserType | null>(null);
   const [lead, setLead] = useState<LeadFormData | null>(null);
   const [result, setResult] = useState<AuditResult | null>(null);
+  const [isApprovedAgency, setIsApprovedAgency] = useState(false);
 
-  const handleTypeSelected = (t: UserType) => {
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return;
+      const { data: role } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.session.user.id)
+        .in('role', ['agency_admin', 'owner_admin', 'admin'] as any)
+        .maybeSingle();
+      if (role) setIsApprovedAgency(true);
+    })();
+  }, []);
+
+  const handleTypeSelected = async (t: UserType) => {
     setUserType(t);
+    // Agencies must apply and be approved before auditing (unless already approved / owner).
+    if (t === 'agency' && !isApprovedAgency) {
+      navigate('/apply');
+      return;
+    }
     setStep('lead_form');
   };
 

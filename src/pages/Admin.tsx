@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Loader2, LogOut, Users, TrendingUp, AlertCircle, Briefcase, Store, BarChart3, ExternalLink } from 'lucide-react';
+import { Loader2, LogOut, Users, TrendingUp, AlertCircle, Briefcase, Store, BarChart3, ExternalLink, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +42,17 @@ export default function Admin() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filter, setFilter] = useState<'all' | 'store_owner' | 'agency' | 'critical' | 'high'>('all');
   const [isSuperOwner, setIsSuperOwner] = useState(false);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [appActionLoading, setAppActionLoading] = useState<string | null>(null);
+
+  const loadApplications = async () => {
+    const { data } = await (supabase as any)
+      .from('agency_applications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    setApplications(data || []);
+  };
 
   useEffect(() => {
     (async () => {
@@ -51,21 +62,58 @@ export default function Admin() {
       const email = (sessionData.session.user.email || '').toLowerCase();
       const superOwner = email === SUPER_OWNER_EMAIL;
       setIsSuperOwner(superOwner);
-      const { data: roleRow } = await supabase.from('user_roles').select('role').eq('user_id', uid).eq('role', 'admin').maybeSingle();
-      if (!roleRow) {
-        toast({ title: 'Access denied', description: 'Your account is not an admin.', variant: 'destructive' });
+      const { data: roleRows } = await supabase.from('user_roles').select('role').eq('user_id', uid);
+      const roles = (roleRows || []).map((r: any) => r.role);
+      const hasAdminAccess = superOwner || roles.some((r: string) => ['admin', 'owner_admin', 'agency_admin'].includes(r));
+      if (!hasAdminAccess) {
+        toast({ title: 'Access denied', description: 'Your account does not have dashboard access.', variant: 'destructive' });
         await supabase.auth.signOut();
         navigate('/auth');
         return;
       }
       setAuthorized(true);
-      // RLS scopes results: super owner sees all, other admins see only their own leads
+      // RLS scopes results
       const { data: leadRows, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(500);
       if (error) toast({ title: 'Load failed', description: error.message, variant: 'destructive' });
       else setLeads(leadRows as Lead[]);
+      if (superOwner) await loadApplications();
       setLoading(false);
     })();
   }, [navigate, toast]);
+
+  const decideApplication = async (app: any, decision: 'approved' | 'rejected') => {
+    setAppActionLoading(app.id);
+    try {
+      let rejectionReason: string | null = null;
+      if (decision === 'rejected') {
+        rejectionReason = window.prompt('Rejection reason (shown to applicant):', '') || 'Not a fit at this time';
+      }
+      const { data: sess } = await supabase.auth.getSession();
+      const { error: upErr } = await (supabase as any)
+        .from('agency_applications')
+        .update({
+          application_status: decision,
+          approved_by: sess.session?.user.id ?? null,
+          approved_at: new Date().toISOString(),
+          rejection_reason: rejectionReason,
+        })
+        .eq('id', app.id);
+      if (upErr) throw upErr;
+      if (decision === 'approved' && app.user_id) {
+        // Grant agency_admin role
+        const { error: roleErr } = await supabase
+          .from('user_roles')
+          .insert({ user_id: app.user_id, role: 'agency_admin' as any });
+        if (roleErr && !roleErr.message.includes('duplicate')) throw roleErr;
+      }
+      toast({ title: `Application ${decision}`, description: app.agency_name });
+      await loadApplications();
+    } catch (e: any) {
+      toast({ title: 'Action failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setAppActionLoading(null);
+    }
+  };
 
 
   const signOut = async () => { await supabase.auth.signOut(); navigate('/auth'); };
@@ -128,6 +176,79 @@ export default function Admin() {
           <StatCard label="High Intent" value={stats.highIntent} icon={<TrendingUp className="w-4 h-4 text-warning" />} />
           <StatCard label="Critical" value={stats.critical} icon={<AlertCircle className="w-4 h-4 text-destructive" />} />
         </div>
+
+        {isSuperOwner && (
+          <div className="glass-card rounded-xl border border-border/50 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-semibold">Agency Applications</h2>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/30">
+                  {applications.filter((a) => a.application_status === 'pending').length} pending
+                </span>
+              </div>
+            </div>
+            {applications.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No applications yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="text-left py-2">Date</th>
+                      <th className="text-left py-2">Applicant</th>
+                      <th className="text-left py-2">Agency</th>
+                      <th className="text-left py-2">Website</th>
+                      <th className="text-center py-2">Status</th>
+                      <th className="text-right py-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {applications.map((a) => (
+                      <tr key={a.id} className="border-t border-border/30">
+                        <td className="py-2 text-xs text-muted-foreground whitespace-nowrap">{new Date(a.created_at).toLocaleDateString()}</td>
+                        <td className="py-2">
+                          <div className="font-medium">{a.full_name}</div>
+                          <div className="text-xs text-muted-foreground">{a.email}</div>
+                        </td>
+                        <td className="py-2 text-xs">{a.agency_name}</td>
+                        <td className="py-2 text-xs">
+                          {a.agency_website ? (
+                            <a href={a.agency_website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                              {a.agency_website.replace(/^https?:\/\//, '')}
+                            </a>
+                          ) : '—'}
+                        </td>
+                        <td className="py-2 text-center">
+                          {a.application_status === 'pending' && <span className="inline-flex items-center gap-1 text-xs text-warning"><Clock className="w-3 h-3" /> Pending</span>}
+                          {a.application_status === 'approved' && <span className="inline-flex items-center gap-1 text-xs text-success"><CheckCircle2 className="w-3 h-3" /> Approved</span>}
+                          {a.application_status === 'rejected' && <span className="inline-flex items-center gap-1 text-xs text-destructive"><XCircle className="w-3 h-3" /> Rejected</span>}
+                        </td>
+                        <td className="py-2 text-right">
+                          {a.application_status === 'pending' ? (
+                            <div className="inline-flex gap-2">
+                              <Button size="sm" variant="hero" disabled={appActionLoading === a.id} onClick={() => decideApplication(a, 'approved')}>
+                                {appActionLoading === a.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Approve'}
+                              </Button>
+                              <Button size="sm" variant="outline" disabled={appActionLoading === a.id} onClick={() => decideApplication(a, 'rejected')}>
+                                Reject
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              {a.approved_at ? new Date(a.approved_at).toLocaleDateString() : ''}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
 
         <div className="flex gap-2 flex-wrap">
           {(['all', 'store_owner', 'agency', 'critical', 'high'] as const).map((f) => (
