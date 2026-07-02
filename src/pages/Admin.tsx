@@ -177,6 +177,79 @@ export default function Admin() {
           <StatCard label="Critical" value={stats.critical} icon={<AlertCircle className="w-4 h-4 text-destructive" />} />
         </div>
 
+        {isSuperOwner && (
+          <div className="glass-card rounded-xl border border-border/50 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-semibold">Agency Applications</h2>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/30">
+                  {applications.filter((a) => a.application_status === 'pending').length} pending
+                </span>
+              </div>
+            </div>
+            {applications.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No applications yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="text-left py-2">Date</th>
+                      <th className="text-left py-2">Applicant</th>
+                      <th className="text-left py-2">Agency</th>
+                      <th className="text-left py-2">Website</th>
+                      <th className="text-center py-2">Status</th>
+                      <th className="text-right py-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {applications.map((a) => (
+                      <tr key={a.id} className="border-t border-border/30">
+                        <td className="py-2 text-xs text-muted-foreground whitespace-nowrap">{new Date(a.created_at).toLocaleDateString()}</td>
+                        <td className="py-2">
+                          <div className="font-medium">{a.full_name}</div>
+                          <div className="text-xs text-muted-foreground">{a.email}</div>
+                        </td>
+                        <td className="py-2 text-xs">{a.agency_name}</td>
+                        <td className="py-2 text-xs">
+                          {a.agency_website ? (
+                            <a href={a.agency_website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                              {a.agency_website.replace(/^https?:\/\//, '')}
+                            </a>
+                          ) : '—'}
+                        </td>
+                        <td className="py-2 text-center">
+                          {a.application_status === 'pending' && <span className="inline-flex items-center gap-1 text-xs text-warning"><Clock className="w-3 h-3" /> Pending</span>}
+                          {a.application_status === 'approved' && <span className="inline-flex items-center gap-1 text-xs text-success"><CheckCircle2 className="w-3 h-3" /> Approved</span>}
+                          {a.application_status === 'rejected' && <span className="inline-flex items-center gap-1 text-xs text-destructive"><XCircle className="w-3 h-3" /> Rejected</span>}
+                        </td>
+                        <td className="py-2 text-right">
+                          {a.application_status === 'pending' ? (
+                            <div className="inline-flex gap-2">
+                              <Button size="sm" variant="hero" disabled={appActionLoading === a.id} onClick={() => decideApplication(a, 'approved')}>
+                                {appActionLoading === a.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Approve'}
+                              </Button>
+                              <Button size="sm" variant="outline" disabled={appActionLoading === a.id} onClick={() => decideApplication(a, 'rejected')}>
+                                Reject
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              {a.approved_at ? new Date(a.approved_at).toLocaleDateString() : ''}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+
         <div className="flex gap-2 flex-wrap">
           {(['all', 'store_owner', 'agency', 'critical', 'high'] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)} className={cn('px-3 py-1.5 text-xs font-medium rounded-full', filter === f ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80')}>
