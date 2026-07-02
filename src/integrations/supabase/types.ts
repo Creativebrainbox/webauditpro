@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      agency_applications: {
+        Row: {
+          agency_logo_url: string | null
+          agency_name: string
+          agency_website: string | null
+          application_status: Database["public"]["Enums"]["application_status"]
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          rejection_reason: string | null
+          user_id: string | null
+        }
+        Insert: {
+          agency_logo_url?: string | null
+          agency_name: string
+          agency_website?: string | null
+          application_status?: Database["public"]["Enums"]["application_status"]
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          rejection_reason?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          agency_logo_url?: string | null
+          agency_name?: string
+          agency_website?: string | null
+          application_status?: Database["public"]["Enums"]["application_status"]
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          rejection_reason?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       audit_reports: {
         Row: {
           created_at: string
@@ -155,6 +200,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_approved_agency: { Args: { _user_id: string }; Returns: boolean }
       is_super_owner: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
@@ -164,6 +210,7 @@ export type Database = {
         | "owner_admin"
         | "agency_admin"
         | "store_owner"
+      application_status: "pending" | "approved" | "rejected"
       opportunity_level: "healthy" | "moderate" | "high" | "critical"
       user_type: "store_owner" | "agency"
     }
@@ -294,6 +341,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user", "owner_admin", "agency_admin", "store_owner"],
+      application_status: ["pending", "approved", "rejected"],
       opportunity_level: ["healthy", "moderate", "high", "critical"],
       user_type: ["store_owner", "agency"],
     },
